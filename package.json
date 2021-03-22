@@ -18,5 +18,12 @@
     "email": "maxi.barmetler@gmail.com",
     "url": "https://www.barmetler.com"
   },
-  "type": "tool"
+  "type": "tool",
+  "samples": [
+    {
+      "displayName": "Roads and Intersection",
+      "description": "Includes Meshes, Prefabs, and Materials",
+      "path": "Samples/Roads"
+    }
+  ]
 }
