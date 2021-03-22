@@ -1,0 +1,22 @@
+{
+  "name": "com.barmetler.roadsystem",
+  "version": "0.0.1",
+  "displayName": "MB Road System",
+  "description": "Create RoadSystems using Bezier Curves that support Path Finding",
+  "unity": "2020.2",
+  "unityRelease": "1f1",
+  "dependencies": {},
+  "keywords": [
+    "road",
+    "roads",
+    "road system",
+    "path finding",
+    "intersection",
+    "intersections"
+  ],
+  "author": {
+    "name": "Maxi Barmetler",
+    "email": "maxi.barmetler@gmail.com",
+    "url": "https://www.barmetler.com"
+  }
+}
