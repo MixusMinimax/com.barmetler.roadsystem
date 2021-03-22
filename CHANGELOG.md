@@ -6,13 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0]
+
+### Added
+- Script files from Cybertruck Simulator
+
 ## [0.0.1]
 
 ### Added
 - package.json
 - Package Folders
-- README.md
-- LICENSE.md
+- README
+- LICENSE
 
-[Unreleased]: https://github.com/MixusMinimax/UnityPackages/compare/v0.0.1...HEAD
-[0.0.1]: https://github.com/MixusMinimax/UnityPackages/releases/tag/v0.0.1
+[Unreleased]: https://github.com/MixusMinimax/Unity.RoadSystem/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/MixusMinimax/Unity.RoadSystem/compare/v0.0.1...v0.1.0
+[0.0.1]: https://github.com/MixusMinimax/Unity.RoadSystem/releases/tag/v0.0.1
