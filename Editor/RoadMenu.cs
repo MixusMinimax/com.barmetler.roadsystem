@@ -58,7 +58,7 @@ namespace Barmetler.RoadSystem
 			}
 			else
 			{
-				newObject = new GameObject();
+				newObject = new GameObject("Road");
 			}
 
 			Undo.RegisterCreatedObjectUndo(newObject, "Create new Road");
@@ -79,7 +79,7 @@ namespace Barmetler.RoadSystem
 
 			GameObjectUtility.SetParentAndAlign(newObject, parent ? parent.gameObject : null);
 
-			if (selected.GetComponent<RoadAnchor>() is RoadAnchor anchor && !anchor.GetConnectedRoad())
+			if (selected && selected.GetComponent<RoadAnchor>() is RoadAnchor anchor && !anchor.GetConnectedRoad())
 			{
 				road.start = anchor;
 				road.RefreshEndPoints();

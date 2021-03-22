@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -79,6 +80,7 @@ namespace Barmetler.RoadSystem
 				if (instance == null)
 				{
 					instance = CreateInstance<RoadSystemSettings>();
+					Directory.CreateDirectory(settingsPath);
 					AssetDatabase.CreateAsset(instance, settingsPath);
 					AssetDatabase.SaveAssets();
 				}

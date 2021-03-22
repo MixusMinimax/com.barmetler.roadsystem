@@ -1,5 +1,5 @@
 {
-    "name": "com.barmetler.roadsystem.editor",
+    "name": "Barmetler.RoadSystem.Editor",
     "rootNamespace": "",
     "references": [
         "GUID:13bb748a4cdc23745900902b3024379d"

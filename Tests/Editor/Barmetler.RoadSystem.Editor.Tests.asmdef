@@ -1,5 +1,5 @@
 {
-    "name": "com.barmetler.roadsystem.runtime",
+    "name": "Barmetler.RoadSystem.Editor.Tests",
     "rootNamespace": "",
     "references": [],
     "includePlatforms": [],

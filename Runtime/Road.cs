@@ -82,8 +82,11 @@ namespace Barmetler.RoadSystem
 			angles.Clear();
 		}
 
-		public void RefreshEndPoints()
+		public void RefreshEndPoints(bool updatemesh = true)
 		{
+			if (start != null) start.SetRoad(this, true);
+			if (end != null) end.SetRoad(this, false);
+
 			if (points.Count == 0 || angles.Count == 0)
 			{
 				points = new List<Vector3> { new Vector3(0, 0, 0), new Vector3(0, 0, 1), new Vector3(0, 0, 3), new Vector3(0, 0, 4) };
@@ -112,7 +115,7 @@ namespace Barmetler.RoadSystem
 				if (autoSetControlPoints)
 					AutoSetAllControlPoints();
 
-				OnCurveChanged();
+				OnCurveChanged(updatemesh);
 			}
 			else if (NumPoints > 1)
 			{
@@ -128,7 +131,7 @@ namespace Barmetler.RoadSystem
 						transform.InverseTransformDirection(start.transform.forward),
 						transform.InverseTransformDirection(start.transform.up));
 					if (a != this[0] || b != this[1] || c != angles[0])
-						OnCurveChanged();
+						OnCurveChanged(updatemesh);
 				}
 				if (end != null)
 				{
@@ -142,11 +145,9 @@ namespace Barmetler.RoadSystem
 						transform.InverseTransformDirection(end.transform.forward),
 						transform.InverseTransformDirection(end.transform.up));
 					if (a != this[-1] || b != this[-2] || c != angles[angles.Count - 1])
-						OnCurveChanged();
+						OnCurveChanged(updatemesh);
 				}
 			}
-
-			OnValidate();
 		}
 
 		public Vector3[] GetPointsInSegment(int i)
@@ -288,7 +289,7 @@ namespace Barmetler.RoadSystem
 
 		public void OnValidate()
 		{
-			OnCurveChanged(false);
+			RefreshEndPoints();
 			if (start != null) start.SetRoad(this, true);
 			if (end != null) end.SetRoad(this, false);
 		}

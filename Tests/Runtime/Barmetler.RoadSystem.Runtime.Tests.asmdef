@@ -1,0 +1,16 @@
+{
+    "name": "Barmetler.RoadSystem.Runtime.Tests",
+    "rootNamespace": "",
+    "references": [
+        "GUID:13bb748a4cdc23745900902b3024379d"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

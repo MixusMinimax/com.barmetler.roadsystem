@@ -48,7 +48,7 @@ namespace Barmetler.RoadSystem
 					ToolTip = "Create a new Road",
 					OnClick = RoadMenu.CreateRoad,
 					IsEnabled = () => true,
-					icon = EditorGUIUtility.Load("Assets/Resources/Icons/Road.png") as Texture,
+					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/Road.png") as Texture,
 				},
 				new Button
 				{
@@ -57,7 +57,7 @@ namespace Barmetler.RoadSystem
 					ToolTip = "Remove selected point from the Road [Backspace]",
 					OnClick = RoadMenu.MenuRemove,
 					IsEnabled = RoadMenu.MenuPointIsSelected,
-					icon = EditorGUIUtility.Load("Assets/Resources/Icons/RemovePoint.png") as Texture,
+					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/RemovePoint.png") as Texture,
 				},
 				new Button
 				{
@@ -66,7 +66,7 @@ namespace Barmetler.RoadSystem
 					ToolTip = "Extrude Selected Endpoint [Ctrl+E]",
 					OnClick = RoadMenu.MenuExtrude,
 					IsEnabled = RoadMenu.MenuEndPointIsSelectedAndNotConnected,
-					icon = EditorGUIUtility.Load("Assets/Resources/Icons/Extrude.png") as Texture,
+					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/Extrude.png") as Texture,
 				},
 				new Button
 				{
