@@ -10,7 +10,20 @@ namespace Barmetler.RoadSystem
 	[EditorTool("RoadSystem/Road Link Tool")]
 	public class RoadLinkTool : MBEditorTool
 	{
+		GUIContent m_IconContent;
+
+		public override GUIContent toolbarIcon => m_IconContent;
+
 		public static RoadLinkTool ActiveInstance { get; private set; } = null;
+
+		private void OnEnable()
+		{
+			m_IconContent = new GUIContent(EditorGUIUtility.IconContent("Linked@2x"))
+			{
+				text = "Road Link Tool",
+				tooltip = "Used to link and unlink roads from anchor points.",
+			};
+		}
 
 		protected override void OnActivateTool()
 		{
