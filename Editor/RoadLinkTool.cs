@@ -48,7 +48,7 @@ namespace Barmetler.RoadSystem
 			public Quaternion rotation =>
 				RoadUtilities.GetRotationAtWorldSpace(road, isStart ? 0 : -1) * (isStart ? Quaternion.AngleAxis(180, Vector3.up) : Quaternion.identity);
 
-			public GameObject gameObject => road.gameObject;
+			public GameObject gameObject => road ? road.gameObject : null;
 
 			public bool IsConnected => isStart ? road.start : road.end;
 
@@ -66,7 +66,7 @@ namespace Barmetler.RoadSystem
 			public Quaternion rotation =>
 				anchor.transform.rotation;
 
-			public GameObject gameObject => anchor.gameObject;
+			public GameObject gameObject => anchor ? anchor.gameObject : null;
 
 			public bool IsConnected => anchor.GetConnectedRoad();
 

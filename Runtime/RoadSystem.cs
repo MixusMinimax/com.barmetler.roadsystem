@@ -18,6 +18,8 @@ namespace Barmetler.RoadSystem
 		public bool ShowDebugInfo = true;
 		public bool ShowEdgeWeights = true;
 
+		public float DistanceFactor = 1000;
+
 		public struct Edge
 		{
 			public Vector3 start, end;
@@ -131,8 +133,7 @@ namespace Barmetler.RoadSystem
 
 		public void ConstructGraph()
 		{
-			intersections = GetComponentsInChildren<Intersection>();
-			roads = GetComponentsInChildren<Road>();
+			OnValidate();
 			graph.ConstructGraph();
 		}
 
@@ -414,7 +415,6 @@ namespace Barmetler.RoadSystem
 				int count = roadSystem.intersections.Select(delegate (Intersection intersection) { return 1 + intersection.AnchorPoints.Length; }).Sum();
 				weights = new TwoDimensionalArray<float>(count, count);
 
-				// Connect all nodes with 1000x their distance, so that islands can still connect, and not exception will be thrown.
 				for (int i = 0; i < count; ++i)
 					for (int j = 0; j < count; ++j)
 						weights[i, j] = float.PositiveInfinity;
@@ -427,7 +427,7 @@ namespace Barmetler.RoadSystem
 					for (int i = 0; i < intersection.AnchorPoints.Length; ++i)
 					{
 						nodes.Add(new Node(intersection.AnchorPoints[i], roadSystem));
-						weights[index, index + i + 1] = weights[index + i + 1, index] = (nodes[index].position - nodes[nodes.Count - 1].position).magnitude;
+						weights[index, index + i + 1] = weights[index + i + 1, index] = (nodes[index].position - nodes[index + i + 1].position).magnitude;
 					}
 				}
 
@@ -449,7 +449,7 @@ namespace Barmetler.RoadSystem
 				{
 					for (int j = i; j < count; ++j)
 					{
-						var weight = (nodes[i].position - nodes[j].position).magnitude * 1000;
+						var weight = (nodes[i].position - nodes[j].position).magnitude * roadSystem.DistanceFactor;
 						if (float.IsInfinity(weights[i, j])) weights[i, j] = weight;
 						if (float.IsInfinity(weights[j, i])) weights[j, i] = weight;
 					}
@@ -481,7 +481,7 @@ namespace Barmetler.RoadSystem
 			private static int FindIndex(Intersection intersection, List<Node> nodes)
 			{
 				if (intersection == null) return -1;
-				return nodes.FindIndex(2, nodes.Count - 2, delegate (Node node)
+				return nodes.FindIndex(0, nodes.Count, delegate (Node node)
 				{
 					return node.nodeType == Node.NodeType.INTERSECTION && node.intersection == intersection;
 				});
@@ -490,7 +490,7 @@ namespace Barmetler.RoadSystem
 			private static int FindIndex(RoadAnchor anchor, List<Node> nodes)
 			{
 				if (anchor == null) return -1;
-				return nodes.FindIndex(2, nodes.Count - 2, delegate (Node node)
+				return nodes.FindIndex(0, nodes.Count, delegate (Node node)
 				{
 					return node.nodeType == Node.NodeType.ANCHOR && node.anchor == anchor;
 				});
@@ -541,7 +541,7 @@ namespace Barmetler.RoadSystem
 				for (int i = 0; i < weights.Width; ++i)
 					for (int j = 0; j < 2; ++j)
 						weights[i, j == 0 ? startIndex : goalIndex] = weights[j == 0 ? startIndex : goalIndex, i] =
-							(nodes[j == 0 ? startIndex : goalIndex].position - nodes[i].position).magnitude * 1000;
+							(nodes[j == 0 ? startIndex : goalIndex].position - nodes[i].position).magnitude * roadSystem.DistanceFactor;
 
 				if (startRoad == goalRoad && startRoad != null)
 				{
