@@ -38,6 +38,26 @@ namespace Barmetler.RoadSystem
 		public static void CreateRoadSystem()
 		{
 			var selected = Selection.activeGameObject;
+			Transform parent = null;
+
+			if (!selected)
+				parent = null;
+			else if (selected.GetComponent<Road>())
+				parent = selected.transform.parent;
+			else if (selected.GetComponentInParent<Intersection>())
+				parent = selected.GetComponentInParent<Intersection>().transform.parent;
+			else if (selected.GetComponentInParent<RoadSystem>())
+				parent = selected.GetComponentInParent<RoadSystem>().transform.parent;
+			else
+				parent = selected.transform;
+
+			var newObject = new GameObject("RoadSystem");
+			Undo.RegisterCreatedObjectUndo(newObject, "Create new Road System");
+			var roadSystem = newObject.AddComponent<RoadSystem>();
+
+			GameObjectUtility.SetParentAndAlign(newObject, parent ? parent.gameObject : null);
+
+			Selection.activeGameObject = newObject;
 		}
 
 		/// <summary>
@@ -75,8 +95,6 @@ namespace Barmetler.RoadSystem
 			if (!selected)
 				parent = null;
 			else if (selected.GetComponent<Road>())
-				parent = selected.transform.parent;
-			else if (selected.GetComponent<Intersection>())
 				parent = selected.transform.parent;
 			else if (selected.GetComponentInParent<Intersection>())
 				parent = selected.GetComponentInParent<Intersection>().transform.parent;

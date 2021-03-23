@@ -24,9 +24,15 @@ namespace Barmetler.RoadSystem
 
 		struct Button
 		{
+			public enum ESymbol
+			{
+				NONE = 0, PLUS = 1, MINUS = 2,
+			}
+
 			public string Name;
 			public string DisplayName;
 			public string ToolTip;
+			public ESymbol Symbol;
 			public System.Action OnClick;
 			public System.Action OnClickAlt;
 			public System.Func<bool> IsEnabled;
@@ -44,9 +50,18 @@ namespace Barmetler.RoadSystem
 			{
 				new Button
 				{
+					Name = "new_road_system",
+					DisplayName = "New Road System",
+					ToolTip = "Create a new Road System",
+					Symbol = Button.ESymbol.PLUS,
+					OnClick = RoadMenu.CreateRoadSystem,
+				},
+				new Button
+				{
 					Name = "new_road",
 					DisplayName = "New Road",
 					ToolTip = "Create a new Road",
+					Symbol = Button.ESymbol.PLUS,
 					OnClick = RoadMenu.CreateRoad,
 					OnClickAlt = NewRoadWizard.CreateWizard,
 					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/Road.png") as Texture,
@@ -56,6 +71,7 @@ namespace Barmetler.RoadSystem
 					Name = "remove_point",
 					DisplayName = "Remove Point",
 					ToolTip = "Remove selected point from the Road [Backspace]",
+					Symbol = Button.ESymbol.MINUS,
 					OnClick = RoadMenu.MenuRemove,
 					IsEnabled = RoadMenu.MenuPointIsSelected,
 					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/RemovePoint.png") as Texture,
@@ -65,6 +81,7 @@ namespace Barmetler.RoadSystem
 					Name = "extrude",
 					DisplayName = "Extrude",
 					ToolTip = "Extrude Selected Endpoint [Ctrl+E]",
+					Symbol = Button.ESymbol.PLUS,
 					OnClick = RoadMenu.MenuExtrude,
 					IsEnabled = RoadMenu.MenuEndPointIsSelectedAndNotConnected,
 					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/Extrude.png") as Texture,
@@ -85,10 +102,15 @@ namespace Barmetler.RoadSystem
 			var popupStyle = new GUIStyle();
 			popupStyle.padding = new RectOffset(2, 2, 2, 2);
 			popupStyle.alignment = TextAnchor.UpperRight;
+			var symbolStyle = new GUIStyle(popupStyle);
+			symbolStyle.alignment = TextAnchor.LowerRight;
 			var popupIcon = EditorGUIUtility.IconContent("_Popup");
+			var plusIcon = EditorGUIUtility.IconContent("d_Toolbar Plus");
+			var minusIcon = EditorGUIUtility.IconContent("d_Toolbar Minus");
 
 			GUIStyle buttonStyle = new GUIStyle(GUI.skin.button);
-			//iconButtonStyle.border = new RectOffset(10, 0, 0, 0);
+			buttonStyle.fontSize = 24;
+			buttonStyle.fontStyle = FontStyle.Bold;
 
 			int rowWidth = Mathf.Max(1, (int)((EditorGUIUtility.currentViewWidth - BUTTON_GAP) / (BUTTON_SIZE + BUTTON_GAP)));
 
@@ -104,7 +126,7 @@ namespace Barmetler.RoadSystem
 
 				var content = action.icon ?
 					new GUIContent(action.icon, $"[{action.DisplayName}]: {ToolTip}") :
-					new GUIContent(action.DisplayName, ToolTip);
+					new GUIContent(GetInitials(action.DisplayName), ToolTip);
 
 				GUI.enabled = action.OnClick != null && (action.IsEnabled?.Invoke() ?? true);
 				if (GUILayout.Button(content, buttonStyle,
@@ -116,9 +138,21 @@ namespace Barmetler.RoadSystem
 						action.OnClick?.Invoke();
 				}
 
+				var rect = GUILayoutUtility.GetLastRect();
+
+				switch (action.Symbol)
+				{
+					case Button.ESymbol.PLUS:
+						GUI.Label(rect, plusIcon, symbolStyle);
+						break;
+					case Button.ESymbol.MINUS:
+						GUI.Label(rect, minusIcon, symbolStyle);
+						break;
+				}
+
 				if (action.OnClickAlt != null)
 				{
-					GUI.Label(GUILayoutUtility.GetLastRect(), popupIcon, popupStyle);
+					GUI.Label(rect, popupIcon, popupStyle);
 				}
 
 				if (x == rowWidth - 1)
@@ -128,6 +162,15 @@ namespace Barmetler.RoadSystem
 			GUI.enabled = true;
 			if (x != 0)
 				GUILayout.EndHorizontal();
+		}
+
+		static string GetInitials(string str)
+		{
+			if (str == null) return "";
+			str = str.ToLower();
+			if (str.StartsWith("new"))
+				str = str.Substring(3);
+			return StringUtility.GetInitials(str);
 		}
 	}
 }
