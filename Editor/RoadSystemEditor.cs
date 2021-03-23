@@ -46,6 +46,8 @@ namespace Barmetler.RoadSystem
 			if (GUILayout.Button("Rebuild All Roads"))
 			{
 				roadSystem.RebuildAllRoads();
+				EditorUtility.SetDirty(roadSystem);
+				SceneView.RepaintAll();
 			}
 		}
 
