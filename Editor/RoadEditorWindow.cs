@@ -86,9 +86,6 @@ namespace Barmetler.RoadSystem
 					IsEnabled = RoadMenu.MenuEndPointIsSelectedAndNotConnected,
 					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/Extrude.png") as Texture,
 				},
-				new Button
-				{
-				}
 			};
 		}
 
