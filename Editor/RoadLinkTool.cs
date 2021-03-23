@@ -16,19 +16,17 @@ namespace Barmetler.RoadSystem
 
 		public static RoadLinkTool ActiveInstance { get; private set; } = null;
 
-		private void OnEnable()
+		protected override void OnActivateTool()
 		{
-			m_IconContent = new GUIContent(EditorGUIUtility.IconContent("Linked@2x"))
+			m_IconContent ??= new GUIContent(EditorGUIUtility.IconContent("Linked@2x"))
 			{
 				text = "Road Link Tool",
 				tooltip = "Used to link and unlink roads from anchor points.",
 			};
-		}
 
-		protected override void OnActivateTool()
-		{
 			ActiveInstance = this;
 			Undo.undoRedoPerformed += OnUndoRedo;
+			UnityEditor.Selection.activeObject = null;
 		}
 
 		protected override void OnDeactivateTool()
@@ -90,6 +88,8 @@ namespace Barmetler.RoadSystem
 		}
 
 		static IPoint activePoint = null;
+
+		public static GameObject Selection => activePoint?.gameObject;
 
 		public static void Select(Road road, bool isStart)
 		{

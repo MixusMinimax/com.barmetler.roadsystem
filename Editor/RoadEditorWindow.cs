@@ -26,7 +26,7 @@ namespace Barmetler.RoadSystem
 		{
 			public enum ESymbol
 			{
-				NONE = 0, PLUS = 1, MINUS = 2,
+				NONE, PLUS, MINUS, LINK
 			}
 
 			public string Name;
@@ -86,6 +86,15 @@ namespace Barmetler.RoadSystem
 					IsEnabled = RoadMenu.MenuEndPointIsSelectedAndNotConnected,
 					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/Extrude.png") as Texture,
 				},
+				new Button
+				{
+					Name = "link",
+					DisplayName = "Link Points",
+					ToolTip = "Enables the linking Tool.\n\n- Click a point to select\n- Shift-Click another to link\n- Shift-Ctrl-Click to link AND extend the road\n   (instead of moving the endpoint)\n- Ctrl-Click to disconnect.",
+					Symbol = Button.ESymbol.LINK,
+					OnClick = RoadMenu.MenuLink,
+					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/Road.png") as Texture,
+				}
 			};
 		}
 
@@ -102,8 +111,9 @@ namespace Barmetler.RoadSystem
 			var symbolStyle = new GUIStyle(popupStyle);
 			symbolStyle.alignment = TextAnchor.LowerRight;
 			var popupIcon = EditorGUIUtility.IconContent("_Popup");
-			var plusIcon = EditorGUIUtility.IconContent("d_Toolbar Plus");
-			var minusIcon = EditorGUIUtility.IconContent("d_Toolbar Minus");
+			var plusIcon = EditorGUIUtility.IconContent("Toolbar Plus");
+			var minusIcon = EditorGUIUtility.IconContent("Toolbar Minus");
+			var linkIcon = EditorGUIUtility.IconContent("Linked");
 
 			GUIStyle buttonStyle = new GUIStyle(GUI.skin.button);
 			buttonStyle.fontSize = 24;
@@ -144,6 +154,9 @@ namespace Barmetler.RoadSystem
 						break;
 					case Button.ESymbol.MINUS:
 						GUI.Label(rect, minusIcon, symbolStyle);
+						break;
+					case Button.ESymbol.LINK:
+						GUI.Label(rect, linkIcon, symbolStyle);
 						break;
 				}
 

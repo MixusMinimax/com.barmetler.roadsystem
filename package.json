@@ -21,7 +21,7 @@
   "type": "tool",
   "samples": [
     {
-      "displayName": "Roads and Intersection",
+      "displayName": "Roads and Intersections",
       "description": "Includes Meshes, Prefabs, and Materials",
       "path": "Samples~/RoadSystem"
     }

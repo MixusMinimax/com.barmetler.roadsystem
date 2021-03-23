@@ -19,13 +19,16 @@ namespace Barmetler.RoadSystem
 			ActiveEditor is RoadEditor editor &&
 			editor.SelectedAnchorPoint != -1;
 
+		public static bool MenuEndPointIsSelected() =>
+			ActiveEditor is RoadEditor editor &&
+			editor.IsEndPoint(editor.SelectedAnchorPoint, YesNoMaybe.MAYBE);
+
 		[MenuItem("Tools/RoadSystem/Unlink Point %u", validate = true)]
 		public static bool MenuEndPointIsSelectedAndConnected() =>
 			ActiveEditor is RoadEditor editor &&
 			editor.IsEndPoint(editor.SelectedAnchorPoint, YesNoMaybe.YES);
 
 		[MenuItem("Tools/RoadSystem/Extrude", validate = true)]
-		[MenuItem("Tools/RoadSystem/Link Point", validate = true)]
 		public static bool MenuEndPointIsSelectedAndNotConnected() =>
 			ActiveEditor is RoadEditor editor &&
 			editor.IsEndPoint(editor.SelectedAnchorPoint, YesNoMaybe.NO);
@@ -72,6 +75,10 @@ namespace Barmetler.RoadSystem
 		public static void CreateRoad()
 		{
 			var selected = Selection.activeGameObject;
+
+			if (RoadLinkTool.ActiveInstance && RoadLinkTool.Selection)
+				selected = RoadLinkTool.Selection;
+
 			Transform parent;
 			GameObject newObject;
 			Road road = null;
@@ -162,19 +169,16 @@ namespace Barmetler.RoadSystem
 			}
 		}
 
-		[MenuItem("Tools/RoadSystem/Link Point %l")]
+		[MenuItem("Tools/RoadSystem/Link Points %l")]
 		public static void MenuLink()
 		{
-			if (MenuEndPointIsSelectedAndNotConnected())
+			if (MenuEndPointIsSelected())
 			{
 				var editor = ActiveEditor;
 				RoadLinkTool.Select(editor.road, editor.SelectedAnchorPoint == 0);
 				ToolManager.SetActiveTool<RoadLinkTool>();
 			}
-			else
-			{
-				Debug.LogError("No road endpoint selected!");
-			}
+			ToolManager.SetActiveTool<RoadLinkTool>();
 		}
 
 		#endregion Menus
