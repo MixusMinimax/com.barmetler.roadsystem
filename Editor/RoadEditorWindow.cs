@@ -28,6 +28,7 @@ namespace Barmetler.RoadSystem
 			public string DisplayName;
 			public string ToolTip;
 			public System.Action OnClick;
+			public System.Action OnClickAlt;
 			public System.Func<bool> IsEnabled;
 			public Texture icon;
 		}
@@ -47,7 +48,7 @@ namespace Barmetler.RoadSystem
 					DisplayName = "New Road",
 					ToolTip = "Create a new Road",
 					OnClick = RoadMenu.CreateRoad,
-					IsEnabled = () => true,
+					OnClickAlt = NewRoadWizard.CreateWizard,
 					icon = EditorGUIUtility.Load("Packages/com.barmetler.roadsystem/Assets/Resources/Icons/Road.png") as Texture,
 				},
 				new Button
@@ -70,7 +71,6 @@ namespace Barmetler.RoadSystem
 				},
 				new Button
 				{
-
 				}
 			};
 		}
@@ -82,6 +82,14 @@ namespace Barmetler.RoadSystem
 
 		private void OnGUI()
 		{
+			var popupStyle = new GUIStyle();
+			popupStyle.padding = new RectOffset(2, 2, 2, 2);
+			popupStyle.alignment = TextAnchor.UpperRight;
+			var popupIcon = EditorGUIUtility.IconContent("_Popup");
+
+			GUIStyle buttonStyle = new GUIStyle(GUI.skin.button);
+			//iconButtonStyle.border = new RectOffset(10, 0, 0, 0);
+
 			int rowWidth = Mathf.Max(1, (int)((EditorGUIUtility.currentViewWidth - BUTTON_GAP) / (BUTTON_SIZE + BUTTON_GAP)));
 
 			int x = 0;
@@ -90,18 +98,30 @@ namespace Barmetler.RoadSystem
 				if (x == 0)
 					GUILayout.BeginHorizontal();
 
-				var content = action.icon ?
-					new GUIContent(action.icon, $"[{action.DisplayName}]: {action.ToolTip}") :
-					new GUIContent(action.DisplayName, action.ToolTip);
+				var ToolTip = action.ToolTip;
+				if (action.OnClickAlt != null)
+					ToolTip += "\n\n(ALT-Click for more Settings)";
 
-				GUI.enabled = action.IsEnabled?.Invoke() ?? false;
-				if (GUILayout.Button(content,
+				var content = action.icon ?
+					new GUIContent(action.icon, $"[{action.DisplayName}]: {ToolTip}") :
+					new GUIContent(action.DisplayName, ToolTip);
+
+				GUI.enabled = action.OnClick != null && (action.IsEnabled?.Invoke() ?? true);
+				if (GUILayout.Button(content, buttonStyle,
 					GUILayout.Width(50), GUILayout.Height(50)))
 				{
-					action.OnClick?.Invoke();
+					if (action.OnClickAlt != null && Event.current.alt)
+						action.OnClickAlt();
+					else
+						action.OnClick?.Invoke();
 				}
 
-				else if (x == rowWidth - 1)
+				if (action.OnClickAlt != null)
+				{
+					GUI.Label(GUILayoutUtility.GetLastRect(), popupIcon, popupStyle);
+				}
+
+				if (x == rowWidth - 1)
 					GUILayout.EndHorizontal();
 				x = (x + 1) % rowWidth;
 			}

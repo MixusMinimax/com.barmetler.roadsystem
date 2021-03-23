@@ -36,7 +36,16 @@ namespace Barmetler.RoadSystem
 		public bool DrawBoundingBoxes => roadSettings.drawBoundingBoxes;
 		public bool UseRayCast => roadSettings.useRayCast;
 		public bool CopyHitNormal => roadSettings.copyHitNormal;
-		public GameObject NewRoadPrefab => roadSettings.newRoadPrefab;
+
+		public GameObject NewRoadPrefab
+		{
+			get => roadSettings.newRoadPrefab;
+			set
+			{
+				roadSettings.newRoadPrefab = value;
+				EditorUtility.SetDirty(this);
+			}
+		}
 
 		public bool DrawNavigatorDebug
 		{

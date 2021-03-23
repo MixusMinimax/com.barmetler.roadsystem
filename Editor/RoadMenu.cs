@@ -42,7 +42,7 @@ namespace Barmetler.RoadSystem
 		/// 
 		/// Use Prefab defined in RoadSystemSettings
 		/// </summary>
-		[MenuItem("Tools/RoadSystem/Create Road")]
+		[MenuItem("Tools/RoadSystem/Create Road", priority = 0)]
 		public static void CreateRoad()
 		{
 			var selected = Selection.activeGameObject;
