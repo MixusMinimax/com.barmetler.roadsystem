@@ -113,6 +113,9 @@ namespace Barmetler.RoadSystem
 				road.MoveAngle(1, road.GetAngle(0));
 			}
 
+			if (newObject.GetComponent<RoadMeshGenerator>() is RoadMeshGenerator roadMeshGenerator)
+				roadMeshGenerator.GenerateRoadMesh();
+
 			Selection.activeGameObject = newObject;
 		}
 

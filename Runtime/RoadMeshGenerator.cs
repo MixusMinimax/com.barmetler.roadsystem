@@ -38,6 +38,8 @@ namespace Barmetler.RoadSystem
 
 		public void GenerateRoadMesh()
 		{
+			OnValidate();
+
 			if (!road) road = GetComponent<Road>();
 			if (!road) return;
 			if (!SourceMesh) return;
@@ -179,6 +181,7 @@ namespace Barmetler.RoadSystem
 			}
 			newMesh.RecalculateNormals();
 			newMesh.RecalculateBounds();
+			newMesh.RecalculateTangents();
 
 			mf.mesh = newMesh;
 			if (GetComponent<MeshCollider>() != null)
