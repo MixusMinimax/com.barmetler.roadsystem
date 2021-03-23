@@ -7,7 +7,7 @@ namespace Barmetler.RoadSystem
 {
 	public class NewRoadWizard : ScriptableWizard
 	{
-		[MenuItem("Tools/RoadSystem/Create Road Wizard", priority = 1)]
+		[MenuItem("Tools/RoadSystem/Create Road Wizard", priority = 3)]
 		public static void CreateWizard()
 		{
 			DisplayWizard<NewRoadWizard>("Create Road", "Create", "Apply");

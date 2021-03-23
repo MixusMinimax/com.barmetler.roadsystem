@@ -23,7 +23,7 @@
     {
       "displayName": "Roads and Intersection",
       "description": "Includes Meshes, Prefabs, and Materials",
-      "path": "Samples/Roads"
+      "path": "Samples/RoadSystem"
     }
   ]
 }

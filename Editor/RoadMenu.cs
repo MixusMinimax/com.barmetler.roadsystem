@@ -34,6 +34,12 @@ namespace Barmetler.RoadSystem
 
 		#region Menus
 
+		[MenuItem("Tools/RoadSystem/Create Road System", priority = 1)]
+		public static void CreateRoadSystem()
+		{
+			var selected = Selection.activeGameObject;
+		}
+
 		/// <summary>
 		/// If road is selected, create new road on the same level
 		/// If intersection is selected, create road on the same level
@@ -42,7 +48,7 @@ namespace Barmetler.RoadSystem
 		/// 
 		/// Use Prefab defined in RoadSystemSettings
 		/// </summary>
-		[MenuItem("Tools/RoadSystem/Create Road", priority = 0)]
+		[MenuItem("Tools/RoadSystem/Create Road", priority = 2)]
 		public static void CreateRoad()
 		{
 			var selected = Selection.activeGameObject;
