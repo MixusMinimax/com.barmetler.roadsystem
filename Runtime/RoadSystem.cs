@@ -33,6 +33,7 @@ namespace Barmetler.RoadSystem
 
 		public void RebuildAllRoads()
 		{
+			ConstructGraph();
 			foreach (var road in roads)
 			{
 				road.OnCurveChanged(true);
@@ -422,6 +423,7 @@ namespace Barmetler.RoadSystem
 
 				foreach (var intersection in roadSystem.intersections)
 				{
+					intersection.Invalidate(false);
 					int index = nodes.Count;
 					nodes.Add(new Node(intersection, roadSystem));
 					for (int i = 0; i < intersection.AnchorPoints.Length; ++i)
@@ -433,6 +435,7 @@ namespace Barmetler.RoadSystem
 
 				foreach (var road in roadSystem.roads)
 				{
+					road.OnValidate();
 					if (road.start != null && road.end != null)
 					{
 						int startIndex = FindIndex(road.start, nodes);
