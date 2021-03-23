@@ -95,6 +95,8 @@ namespace Barmetler.RoadSystem
 		{
 			var e = Event.current;
 
+			if (activePoint != null && !activePoint.gameObject) activePoint = null;
+
 			if (activePoint != null && !activePoint.IsConnected && e.shift)
 				toolState = ToolState.LINKING;
 			else if (e.control && !e.shift)

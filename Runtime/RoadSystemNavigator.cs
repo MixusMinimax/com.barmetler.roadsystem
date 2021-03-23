@@ -12,7 +12,6 @@ namespace Barmetler.RoadSystem
 		public Vector3 Goal = Vector3.zero;
 
 		public float GraphStepSize = 1;
-		public float CornerSharpness = 0.6f;
 		public float MinDistanceYScale = 1;
 
 		public float GetMinDistance(out Road road, out Vector3 closestPoint, out float distanceAlongRoad)

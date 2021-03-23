@@ -223,13 +223,12 @@ namespace Barmetler.RoadSystem
 						{
 							if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
 							if (!reverse && d >= dst)
-								evenlySpacedPoints.Add(pts[i].ToWorldSpace(transform));
+								evenlySpacedPoints.Add(pts[i].ToWorldSpace(nodes[0].road.transform));
 							else if (reverse && d <= dst)
-								evenlySpacedPoints.Insert(0, pts[i].ToWorldSpace(transform));
+								evenlySpacedPoints.Insert(0, pts[i].ToWorldSpace(nodes[0].road.transform));
 						}
 						evenlySpacedPoints.Insert(0, new Bezier.EvenlySpacedPoint(
-							nodes[wpt].position, evenlySpacedPoints[0].forward, evenlySpacedPoints[0].normal)
-							.ToWorldSpace(nodes[wpt].road.transform));
+							nodes[wpt].GetWorldPosition(), evenlySpacedPoints[0].forward, evenlySpacedPoints[0].normal));
 					}
 					else if (wpt == 0 && nodes[wpt].anchor != null) // Start Intersection Section
 					{
@@ -259,16 +258,15 @@ namespace Barmetler.RoadSystem
 						{
 							if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
 							if (!reverse && d <= dst)
-								evenlySpacedPoints.Add(pts[i].ToWorldSpace(transform));
+								evenlySpacedPoints.Add(pts[i].ToWorldSpace(nodes[wpt].road.transform));
 							else if (reverse && d >= dst)
-								evenlySpacedPoints.Insert(insertAt, pts[i].ToWorldSpace(transform));
+								evenlySpacedPoints.Insert(insertAt, pts[i].ToWorldSpace(nodes[wpt].road.transform));
 						}
 						evenlySpacedPoints.Add(
 							new Bezier.EvenlySpacedPoint(
-								nodes[wpt].position,
+								nodes[wpt].GetWorldPosition(),
 								evenlySpacedPoints[evenlySpacedPoints.Count - 1].forward,
-								evenlySpacedPoints[evenlySpacedPoints.Count - 1].normal)
-							.ToWorldSpace(transform));
+								evenlySpacedPoints[evenlySpacedPoints.Count - 1].normal));
 					}
 					else if (wpt == count - 1 && nodes[wpt].anchor != null) // End Intersection Section
 					{
