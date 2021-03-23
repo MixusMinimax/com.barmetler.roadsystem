@@ -75,9 +75,9 @@ namespace Barmetler
 				dst_position.y < 0 ||
 				src_position.x < 0 ||
 				src_position.y < 0 ||
-				size.x < 1 ||
-				size.y < 1)
-				throw new System.ArgumentException("positions can't be negative, size must be positive");
+				size.x < 0 ||
+				size.y < 0)
+				throw new System.ArgumentException("positions and size can't be negative");
 
 			for (int y = 0; y < other.Height; ++y)
 			{

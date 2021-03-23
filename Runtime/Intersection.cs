@@ -17,13 +17,12 @@ namespace Barmetler.RoadSystem
 		private void OnValidate()
 		{
 			anchorPoints = GetComponentsInChildren<RoadAnchor>();
-			radius = Mathf.Sqrt(anchorPoints.Select(e => (e.transform.position - transform.position).sqrMagnitude).Max());
+			radius = Mathf.Sqrt(anchorPoints.Length > 0 ? anchorPoints.Select(e => (e.transform.position - transform.position).sqrMagnitude).Max() : 0);
 		}
 
 		private void Awake()
 		{
-			anchorPoints = GetComponentsInChildren<RoadAnchor>();
-			radius = Mathf.Sqrt(anchorPoints.Select(e => (e.transform.position - transform.position).sqrMagnitude).Max());
+			OnValidate();
 		}
 
 		public void Invalidate(bool updateMesh = true)

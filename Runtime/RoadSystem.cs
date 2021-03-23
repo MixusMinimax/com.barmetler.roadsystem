@@ -83,6 +83,7 @@ namespace Barmetler.RoadSystem
 
 			foreach (var intersection in intersections)
 			{
+				if (!intersection) continue;
 				float dst =
 					Vector3.Scale(intersection.transform.position - worldPosition, new Vector3(1, yScale, 1)).magnitude -
 					intersection.Radius;
@@ -229,7 +230,7 @@ namespace Barmetler.RoadSystem
 							nodes[wpt].position, evenlySpacedPoints[0].forward, evenlySpacedPoints[0].normal)
 							.ToWorldSpace(nodes[wpt].road.transform));
 					}
-					else if (wpt == 0) // Start Intersection Section
+					else if (wpt == 0 && nodes[wpt].anchor != null) // Start Intersection Section
 					{
 						var a = nodes[wpt].position;
 						var b = nodes[wpt + 1].position;
@@ -268,7 +269,7 @@ namespace Barmetler.RoadSystem
 								evenlySpacedPoints[evenlySpacedPoints.Count - 1].normal)
 							.ToWorldSpace(transform));
 					}
-					else if (wpt == count - 1) // End Intersection Section
+					else if (wpt == count - 1 && nodes[wpt].anchor != null) // End Intersection Section
 					{
 						var a = nodes[wpt - 1].position;
 						var b = nodes[wpt].position;
@@ -613,7 +614,7 @@ namespace Barmetler.RoadSystem
 								weights[pointIndex, roadStartIndex] = weights[roadStartIndex, pointIndex] =
 									distanceAlongRoad;
 						}
-						else
+						else if (anchor != null)
 						{
 							int intersectionIndex = FindIndex(anchor.Intersection, nodes);
 							int anchorIndex = FindIndex(anchor, nodes);
