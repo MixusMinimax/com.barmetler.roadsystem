@@ -23,8 +23,9 @@ namespace Barmetler
 		[SerializeField]
 		private T[] array;
 
-		public int Width { get => width; }
-		public int Height { get => height; }
+		public int Width => width;
+		public int Height => height;
+		public int Length => array.Length;
 
 		public TwoDimensionalArray<T> Clone()
 		{
@@ -117,6 +118,12 @@ namespace Barmetler
 				s += "\n";
 			}
 			return s;
+		}
+
+		public T this[int i]
+		{
+			get => array[i];
+			set => array[i] = value;
 		}
 
 		public T this[int x, int y]

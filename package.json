@@ -1,6 +1,6 @@
 {
   "name": "com.barmetler.roadsystem",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "displayName": "MB Road System",
   "description": "Create RoadSystems using Bezier Curves that support Path Finding",
   "unity": "2020.1",

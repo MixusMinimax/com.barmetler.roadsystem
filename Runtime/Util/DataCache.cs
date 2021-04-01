@@ -12,6 +12,7 @@ namespace Barmetler
 		public void SetData(T data)
 		{
 			this.data = data;
+			valid = true;
 		}
 
 		public T GetData()
