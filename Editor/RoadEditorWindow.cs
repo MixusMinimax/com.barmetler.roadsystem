@@ -46,8 +46,6 @@ namespace Barmetler.RoadSystem
 
 		private void OnEnable()
 		{
-			titleContent = new GUIContent("MB Road System");
-
 			Actions = new List<Button>
 			{
 				new Button
