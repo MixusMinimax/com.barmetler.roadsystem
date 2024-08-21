@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Profiling;
 
+using static Util.Functional;
+
 namespace Barmetler.RoadSystem
 {
 	public class Road : MonoBehaviour
@@ -442,7 +444,7 @@ namespace Barmetler.RoadSystem
 			{
 				if (calculateBoundingBoxes)
 				{
-					result = Bezier.GetEvenlySpacedPoints(points, normals, ref bounds, boundingBoxes, spacing,
+					result = Bezier.GetEvenlySpacedPoints(points, normals, out bounds, boundingBoxes, spacing,
 						resolution);
 				}
 				else
@@ -571,15 +573,18 @@ namespace Barmetler.RoadSystem
 			closestPoint = transform.TransformPoint(closestPointLocal);
 			return minDst;
 		}
+		
+		private static ProfilerMarker RoadMeshGeneratorPerfMarker = new ProfilerMarker("RoadMeshGenerator");
 
 		public void OnCurveChanged(bool updateMesh = true)
 		{
 			evenlySpacedPointsCache.Invalidate();
 			CalculateEvenlySpacedPoints(1, 1, true);
 
-			if (GetComponent<RoadMeshGenerator>())
+			if (Let(GetComponent<RoadMeshGenerator>(), out var generator))
 			{
-				GetComponent<RoadMeshGenerator>().Invalidate(updateMesh);
+				using (RoadMeshGeneratorPerfMarker.Auto())
+					generator.Invalidate(updateMesh);
 			}
 		}
 
