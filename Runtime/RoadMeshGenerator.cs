@@ -6,6 +6,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Profiling;
 using UnityEngine.AI;
 using Util;
 
@@ -380,6 +381,15 @@ namespace Barmetler.RoadSystem
 			indicesRef = newIndices;
 			uvsRef = newUVs;
 		}
+
+		private static ProfilerMarker _extractResultsMarker = new ProfilerMarker("Extract Results");
+		private static ProfilerMarker _disposeMarker = new ProfilerMarker("Dispose");
+		private static ProfilerMarker _setVerticesMarker = new ProfilerMarker("Set Vertices");
+		private static ProfilerMarker _setIndicesMarker = new ProfilerMarker("Set Indices");
+		private static ProfilerMarker _setUVsMarker = new ProfilerMarker("Set UVs");
+		private static ProfilerMarker _recalculateNormalsMarker = new ProfilerMarker("Recalculate Normals");
+		private static ProfilerMarker _recalculateTangentsMarker = new ProfilerMarker("Recalculate Tangents");
+		private static ProfilerMarker _recalculateBoundsMarker = new ProfilerMarker("Recalculate Bounds");
 		
 		/// <summary>
 		/// Generate the mesh based on the curve described in the Road component.
@@ -474,10 +484,13 @@ namespace Barmetler.RoadSystem
 			
 			job.Run();
 
+			_extractResultsMarker.Begin();
 			var newVertices = job.ResultVertices.ToArray();
 			var newIndices = job.ResultIndices.AsEnumerable().Select(e => e.AsEnumerable().ToArray()).ToArray();
 			var newUVs = job.ResultUVs.AsEnumerable().Select(e => e.AsEnumerable().ToArray()).ToArray();
+			_extractResultsMarker.End();
 			
+			_disposeMarker.Begin();
 			job.Points.Dispose();
 			job.Vertices.Dispose();
 			foreach (var i in job.Indices) i.Dispose();
@@ -489,16 +502,23 @@ namespace Barmetler.RoadSystem
 			job.ResultIndices.Dispose();
 			foreach (var i in job.ResultUVs) i.Dispose();
 			job.ResultUVs.Dispose();
+			_disposeMarker.End();
 
 			newMesh.subMeshCount = submeshCount;
-			newMesh.SetVertices(newVertices);
-			for (var i = 0; i < submeshCount; ++i)
-				newMesh.SetIndices(newIndices[i], oldMesh.GetTopology(i), i);
-			for (var i = 0; i < 8; ++i)
-				newMesh.SetUVs(i, newUVs.ElementAt(i));
-			newMesh.RecalculateNormals();
-			newMesh.RecalculateTangents();
-			newMesh.RecalculateBounds();
+			using (_setVerticesMarker.Auto())
+				newMesh.SetVertices(newVertices);
+			using (_setIndicesMarker.Auto())
+				for (var i = 0; i < submeshCount; ++i)
+					newMesh.SetIndices(newIndices[i], oldMesh.GetTopology(i), i);
+			using (_setUVsMarker.Auto())
+				for (var i = 0; i < 8; ++i)
+					newMesh.SetUVs(i, newUVs.ElementAt(i));
+			using (_recalculateNormalsMarker.Auto())
+				newMesh.RecalculateNormals();
+			using (_recalculateTangentsMarker.Auto())
+				newMesh.RecalculateTangents();
+			using (_recalculateBoundsMarker.Auto())
+				newMesh.RecalculateBounds();
 
 			mf.mesh = newMesh;
 			if (GetComponent<MeshCollider>() != null)
@@ -531,7 +551,7 @@ namespace Barmetler.RoadSystem
 				for (var i = 0; i < Indices.Length; ++i)
 					indexCounts[i] = Indices[i].Length;
 				var submeshCount = Indices.Length;
-				
+
 				for (var z = 0; z < CompleteCopies; ++z)
 				{
 					var yOffset = z * MeshLength;
@@ -561,112 +581,106 @@ namespace Barmetler.RoadSystem
 						ResultUVs.ElementAt(channel).Add(UVs[channel][uv] + Vector2.up * UVOffset * z);
 				}
 
-				if (true)
+				var remainder = BezierLength - CompleteCopies * MeshLength;
+				var remainderVertices = new NativeList<Vector3>(Vertices.Length, Allocator.Temp);
+				remainderVertices.CopyFrom(Vertices);
+
+				var remainderIndices = new UnsafeList<UnsafeList<int>>(Indices.Length, Allocator.Temp);
+				for (var i = 0; i < Indices.Length; ++i)
 				{
-					var remainder = BezierLength - CompleteCopies * MeshLength;
-					var remainderVertices = new NativeList<Vector3>(Vertices.Length, Allocator.Temp);
-					remainderVertices.CopyFrom(Vertices);
-
-					var remainderIndices = new UnsafeList<UnsafeList<int>>(Indices.Length, Allocator.Temp);
-					for (var i = 0; i < Indices.Length; ++i)
-					{
-						remainderIndices[i] = new UnsafeList<int>(Indices[i].Length, Allocator.Temp);
-						remainderIndices.ElementAt(i).CopyFrom(in Indices.ElementAt(i));
-					}
-
-					var remainderUVs = new UnsafeList<UnsafeList<Vector2>>(8, Allocator.Temp);
-					for (var i = 0; i < UVs.Length; ++i)
-					{
-						remainderUVs.Add(new UnsafeList<Vector2>(UVs[i].Length, Allocator.Temp));
-						remainderUVs.ElementAt(i).CopyFrom(UVs[i]);
-					}
-
-					for (var i = 0; i < submeshCount; ++i)
-					{
-						ref var indices = ref remainderIndices.ElementAt(i);
-						ClipMeshZ(ref remainderVertices, ref indices, ref remainderUVs, remainder);
-						remainderIndices[i] = indices;
-					}
-
-					for (var i = 0; i < remainderVertices.Length; ++i)
-					{
-						remainderVertices[i] += Vector3.forward * (MeshLength * CompleteCopies);
-					}
-
-					for (var i = 0; i < submeshCount; ++i)
-					{
-						var indices = remainderIndices[i];
-						for (var j = 0; j < indices.Length; ++j)
-							indices[j] += ResultVertices.Length;
-						remainderIndices[i] = indices;
-					}
-
-					for (var i = 0; i < UVs.Length; ++i)
-					{
-						var uvs = remainderUVs[i];
-						for (var j = 0; j < uvs.Length; ++j)
-							uvs[j] += UVOffset * CompleteCopies;
-						remainderUVs[i] = uvs;
-					}
-
-					ResultVertices.AddRange(remainderVertices);
-					for (var i = 0; i < submeshCount; ++i)
-						ResultIndices.ElementAt(i).AddRange(remainderIndices[i]);
-					for (var i = 0; i < 8; ++i)
-						ResultUVs.ElementAt(i).AddRange(remainderUVs[i]);
-					
-					remainderVertices.Dispose();
-					foreach (var i in remainderIndices) i.Dispose();
-					remainderIndices.Dispose();
-					foreach (var i in remainderUVs) i.Dispose();
-					remainderUVs.Dispose();
+					remainderIndices[i] = new UnsafeList<int>(Indices[i].Length, Allocator.Temp);
+					remainderIndices.ElementAt(i).CopyFrom(in Indices.ElementAt(i));
 				}
 
-				if (true)
+				var remainderUVs = new UnsafeList<UnsafeList<Vector2>>(8, Allocator.Temp);
+				for (var i = 0; i < UVs.Length; ++i)
 				{
-					// bend along bezier
-					for (var v = 0; v < ResultVertices.Length; ++v)
+					remainderUVs.Add(new UnsafeList<Vector2>(UVs[i].Length, Allocator.Temp));
+					remainderUVs.ElementAt(i).CopyFrom(UVs[i]);
+				}
+
+				for (var i = 0; i < submeshCount; ++i)
+				{
+					ref var indices = ref remainderIndices.ElementAt(i);
+					ClipMeshZ(ref remainderVertices, ref indices, ref remainderUVs, remainder);
+					remainderIndices[i] = indices;
+				}
+
+				for (var i = 0; i < remainderVertices.Length; ++i)
+				{
+					remainderVertices[i] += Vector3.forward * (MeshLength * CompleteCopies);
+				}
+
+				for (var i = 0; i < submeshCount; ++i)
+				{
+					var indices = remainderIndices[i];
+					for (var j = 0; j < indices.Length; ++j)
+						indices[j] += ResultVertices.Length;
+					remainderIndices[i] = indices;
+				}
+
+				for (var i = 0; i < UVs.Length; ++i)
+				{
+					var uvs = remainderUVs[i];
+					for (var j = 0; j < uvs.Length; ++j)
+						uvs[j] += UVOffset * CompleteCopies;
+					remainderUVs[i] = uvs;
+				}
+
+				ResultVertices.AddRange(remainderVertices);
+				for (var i = 0; i < submeshCount; ++i)
+					ResultIndices.ElementAt(i).AddRange(remainderIndices[i]);
+				for (var i = 0; i < 8; ++i)
+					ResultUVs.ElementAt(i).AddRange(remainderUVs[i]);
+
+				remainderVertices.Dispose();
+				foreach (var i in remainderIndices) i.Dispose();
+				remainderIndices.Dispose();
+				foreach (var i in remainderUVs) i.Dispose();
+				remainderUVs.Dispose();
+
+				// bend along bezier
+				for (var v = 0; v < ResultVertices.Length; ++v)
+				{
+					var pos = ResultVertices[v];
+
+					var pointIndex = Mathf.Clamp(Mathf.FloorToInt(pos.z / StepSize), 0, Points.Length - 2);
+					var weight = pos.z / StepSize - pointIndex;
+					if (pointIndex == Points.Length - 2)
 					{
-						var pos = ResultVertices[v];
-
-						var pointIndex = Mathf.Clamp(Mathf.FloorToInt(pos.z / StepSize), 0, Points.Length - 2);
-						var weight = pos.z / StepSize - pointIndex;
-						if (pointIndex == Points.Length - 2)
-						{
-							weight = (pos.z - StepSize * pointIndex) /
-							         (Points[Points.Length - 1].position - Points[Points.Length - 2].position)
-							         .magnitude;
-						}
-
-						Vector3 centerPos;
-						Vector3 forward;
-						Vector3 normal;
-						if (pointIndex < Points.Length - 1)
-						{
-							centerPos = Vector3.Lerp(Points[pointIndex].position, Points[pointIndex + 1].position,
-								weight);
-							forward = Vector3.Lerp(Points[pointIndex].forward, Points[pointIndex + 1].forward, weight)
-								.normalized;
-							if (weight < 1e-6)
-								normal = Points[pointIndex].normal;
-							else if (weight > 1 - 1e-6)
-								normal = Points[pointIndex + 1].normal;
-							else
-								normal = Vector3.Lerp(Points[pointIndex].normal, Points[pointIndex + 1].normal, weight);
-						}
-						else // Should not happen, except if the z coordinate is EXACTLY at the end of the bezier
-						{
-							centerPos = Points[pointIndex].position;
-							forward = Points[pointIndex].forward;
-							normal = Points[pointIndex].normal;
-						}
-
-						var right = Vector3.Cross(normal, forward).normalized;
-
-						pos = centerPos + right * pos.x + normal * pos.y;
-
-						ResultVertices[v] = pos;
+						weight = (pos.z - StepSize * pointIndex) /
+						         (Points[Points.Length - 1].position - Points[Points.Length - 2].position)
+						         .magnitude;
 					}
+
+					Vector3 centerPos;
+					Vector3 forward;
+					Vector3 normal;
+					if (pointIndex < Points.Length - 1)
+					{
+						centerPos = Vector3.Lerp(Points[pointIndex].position, Points[pointIndex + 1].position,
+							weight);
+						forward = Vector3.Lerp(Points[pointIndex].forward, Points[pointIndex + 1].forward, weight)
+							.normalized;
+						if (weight < 1e-6)
+							normal = Points[pointIndex].normal;
+						else if (weight > 1 - 1e-6)
+							normal = Points[pointIndex + 1].normal;
+						else
+							normal = Vector3.Lerp(Points[pointIndex].normal, Points[pointIndex + 1].normal, weight);
+					}
+					else // Should not happen, except if the z coordinate is EXACTLY at the end of the bezier
+					{
+						centerPos = Points[pointIndex].position;
+						forward = Points[pointIndex].forward;
+						normal = Points[pointIndex].normal;
+					}
+
+					var right = Vector3.Cross(normal, forward).normalized;
+
+					pos = centerPos + right * pos.x + normal * pos.y;
+
+					ResultVertices[v] = pos;
 				}
 
 				indexCounts.Dispose();
