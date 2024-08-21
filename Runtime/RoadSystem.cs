@@ -6,6 +6,8 @@ using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
+	using PointList = List<Bezier.OrientedPoint>;
+
 	public class RoadSystem : MonoBehaviour
 	{
 		[SerializeField, HideInInspector]
@@ -142,24 +144,26 @@ namespace Barmetler.RoadSystem
 			return graph.GetEdges();
 		}
 
-		public List<Bezier.EvenlySpacedPoint> FindPath(Vector3 worldPosition, Vector3 goalWorld, float yScale = 1, float stepSize = 1)
+		public List<Bezier.OrientedPoint> FindPath(
+			Vector3 startPosWorld, Vector3 goalPosWorld,
+			float yScale = 1, float stepSize = 1, float minDstToRoadToConnect = 10)
 		{
 			List<Graph.Node> nodes;
 
 			float startDistRoad = GetMinDistance(
-				worldPosition, stepSize, yScale,
+				startPosWorld, stepSize, yScale,
 				out Road startRoad, out Vector3 startPosition1, out float startDstAlongRoad1);
 			float startDistIntersection = GetMinDistance(
-				worldPosition, yScale,
+				startPosWorld, yScale,
 				out Intersection _, out RoadAnchor startAnchor,
 				out Vector3 startPosition2, out float startDstAlongRoad2);
 			var startUseRoad = startDistRoad < startDistIntersection;
 
 			float goalDistRoad = GetMinDistance(
-				goalWorld, stepSize, yScale,
+				goalPosWorld, stepSize, yScale,
 				out Road goalRoad, out Vector3 goalPosition1, out float goalDstAlongRoad1);
 			float goalDistIntersection = GetMinDistance(
-				goalWorld, yScale,
+				goalPosWorld, yScale,
 				out Intersection _, out RoadAnchor goalAnchor,
 				out Vector3 goalPosition2, out float goalDstAlongRoad2);
 			var goalUseRoad = goalDistRoad < goalDistIntersection;
@@ -175,12 +179,14 @@ namespace Barmetler.RoadSystem
 				goalUseRoad ? null : goalAnchor,
 				goalUseRoad ? goalDstAlongRoad1 : goalDstAlongRoad2);
 
-			return GenerateSmoothPath(nodes, stepSize);
+			return GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
 		}
 
-		private List<Bezier.EvenlySpacedPoint> GenerateSmoothPath(List<Graph.Node> nodes, float stepSize = 1)
+		private PointList GenerateSmoothPath(
+			Vector3 startPosWorld, Vector3 goalPosWorld, List<Graph.Node> nodes,
+			float stepSize = 1, float minDstToRoadToConnect = 10)
 		{
-			var evenlySpacedPoints = new List<Bezier.EvenlySpacedPoint>();
+			var pathPoints = new PointList();
 
 			if (nodes.Count == 2 && nodes[0].road)
 			{
@@ -191,9 +197,9 @@ namespace Barmetler.RoadSystem
 				for (int i = 0; i < pts.Length; ++i)
 				{
 					if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
-					if (d >= a && d <= b) evenlySpacedPoints.Add(pts[i].ToWorldSpace(nodes[0].road.transform));
+					if (d >= a && d <= b) pathPoints.Add(pts[i].ToWorldSpace(nodes[0].road.transform));
 				}
-				if (nodes[0].distanceAlongRoad > nodes[1].distanceAlongRoad) evenlySpacedPoints.Reverse();
+				if (nodes[0].distanceAlongRoad > nodes[1].distanceAlongRoad) pathPoints.Reverse();
 			}
 			else if (nodes.Count == 2 && nodes[0].anchor)
 			{
@@ -206,7 +212,7 @@ namespace Barmetler.RoadSystem
 				for (int i = 0; i < nPoints; ++i)
 				{
 					var t = Mathf.Lerp(a, b, (float)i / Mathf.Max(1, nPoints - 1));
-					evenlySpacedPoints.Add(new Bezier.EvenlySpacedPoint(intersection + t * n, n, nodes[0].anchor.Intersection.transform.up));
+					pathPoints.Add(new Bezier.OrientedPoint(intersection + t * n, n, nodes[0].anchor.Intersection.transform.up));
 				}
 			}
 			else
@@ -224,12 +230,12 @@ namespace Barmetler.RoadSystem
 						{
 							if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
 							if (!reverse && d >= dst)
-								evenlySpacedPoints.Add(pts[i].ToWorldSpace(nodes[0].road.transform));
+								pathPoints.Add(pts[i].ToWorldSpace(nodes[0].road.transform));
 							else if (reverse && d <= dst)
-								evenlySpacedPoints.Insert(0, pts[i].ToWorldSpace(nodes[0].road.transform));
+								pathPoints.Insert(0, pts[i].ToWorldSpace(nodes[0].road.transform));
 						}
-						evenlySpacedPoints.Insert(0, new Bezier.EvenlySpacedPoint(
-							nodes[wpt].GetWorldPosition(), evenlySpacedPoints[0].forward, evenlySpacedPoints[0].normal));
+						pathPoints.Insert(0, new Bezier.OrientedPoint(
+							nodes[wpt].GetWorldPosition(), pathPoints[0].forward, pathPoints[0].normal));
 					}
 					else if (wpt == 0 && nodes[wpt].anchor != null) // Start Intersection Section
 					{
@@ -243,8 +249,8 @@ namespace Barmetler.RoadSystem
 						for (int i = 0; i <= amount; ++i)
 						{
 							float f = (float)i / amount;
-							evenlySpacedPoints.Add(
-								new Bezier.EvenlySpacedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
+							pathPoints.Add(
+								new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
 								.ToWorldSpace(transform));
 						}
 					}
@@ -254,20 +260,20 @@ namespace Barmetler.RoadSystem
 						bool reverse = nodes[wpt - 1].anchor == nodes[wpt].road.end;
 						var pts = nodes[wpt].road.GetEvenlySpacedPoints(stepSize);
 						float d = 0;
-						int insertAt = evenlySpacedPoints.Count;
+						int insertAt = pathPoints.Count;
 						for (int i = 0; i < pts.Length; ++i)
 						{
 							if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
 							if (!reverse && d <= dst)
-								evenlySpacedPoints.Add(pts[i].ToWorldSpace(nodes[wpt].road.transform));
+								pathPoints.Add(pts[i].ToWorldSpace(nodes[wpt].road.transform));
 							else if (reverse && d >= dst)
-								evenlySpacedPoints.Insert(insertAt, pts[i].ToWorldSpace(nodes[wpt].road.transform));
+								pathPoints.Insert(insertAt, pts[i].ToWorldSpace(nodes[wpt].road.transform));
 						}
-						evenlySpacedPoints.Add(
-							new Bezier.EvenlySpacedPoint(
+						pathPoints.Add(
+							new Bezier.OrientedPoint(
 								nodes[wpt].GetWorldPosition(),
-								evenlySpacedPoints[evenlySpacedPoints.Count - 1].forward,
-								evenlySpacedPoints[evenlySpacedPoints.Count - 1].normal));
+								pathPoints[pathPoints.Count - 1].forward,
+								pathPoints[pathPoints.Count - 1].normal));
 					}
 					else if (wpt == count - 1 && nodes[wpt].anchor != null) // End Intersection Section
 					{
@@ -281,12 +287,14 @@ namespace Barmetler.RoadSystem
 						for (int i = 1; i <= amount; ++i)
 						{
 							float f = (float)i / amount;
-							evenlySpacedPoints.Add(
-								new Bezier.EvenlySpacedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
+							pathPoints.Add(
+								new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
 								.ToWorldSpace(transform));
 						}
 					}
-					else if (nodes[wpt].nodeType == Graph.Node.NodeType.ANCHOR && nodes[wpt + 1].nodeType == Graph.Node.NodeType.ANCHOR)
+					else if (
+						nodes[wpt].nodeType == Graph.Node.NodeType.ANCHOR &&
+						nodes[wpt + 1].nodeType == Graph.Node.NodeType.ANCHOR)
 					{
 						var a = nodes[wpt].anchor;
 						var b = nodes[wpt].anchor;
@@ -294,26 +302,28 @@ namespace Barmetler.RoadSystem
 						if (road)
 						{
 							bool reverse = road.end == a;
-							int insertAt = evenlySpacedPoints.Count;
+							int insertAt = pathPoints.Count;
 							var pts = road.GetEvenlySpacedPoints(stepSize);
 
 							for (int i = 0; i < pts.Length; ++i)
 							{
 								if (!reverse)
-									evenlySpacedPoints.Add(pts[i].ToWorldSpace(road.transform));
+									pathPoints.Add(pts[i].ToWorldSpace(road.transform));
 								else
-									evenlySpacedPoints.Insert(insertAt, pts[i].ToWorldSpace(road.transform));
+									pathPoints.Insert(insertAt, pts[i].ToWorldSpace(road.transform));
 							}
 						}
 						else
 						{
-							evenlySpacedPoints.Add(new Bezier.EvenlySpacedPoint(a.transform.position, a.transform.forward, a.transform.up));
-							evenlySpacedPoints.Add(new Bezier.EvenlySpacedPoint(b.transform.position, -b.transform.forward, b.transform.up));
+							pathPoints.Add(new Bezier.OrientedPoint(a.transform.position, a.transform.forward, a.transform.up));
+							pathPoints.Add(new Bezier.OrientedPoint(b.transform.position, -b.transform.forward, b.transform.up));
 						}
 					}
 					else if (
-						nodes[wpt].nodeType == Graph.Node.NodeType.ANCHOR && nodes[wpt + 1].nodeType == Graph.Node.NodeType.INTERSECTION ||
-						nodes[wpt].nodeType == Graph.Node.NodeType.INTERSECTION && nodes[wpt + 1].nodeType == Graph.Node.NodeType.ANCHOR)
+						nodes[wpt].nodeType == Graph.Node.NodeType.ANCHOR &&
+						nodes[wpt + 1].nodeType == Graph.Node.NodeType.INTERSECTION ||
+						nodes[wpt].nodeType == Graph.Node.NodeType.INTERSECTION &&
+						nodes[wpt + 1].nodeType == Graph.Node.NodeType.ANCHOR)
 					{
 						var a = nodes[wpt].position;
 						var b = nodes[wpt + 1].position;
@@ -325,15 +335,40 @@ namespace Barmetler.RoadSystem
 						for (int i = 1; i <= amount - (nodes[wpt].nodeType == Graph.Node.NodeType.INTERSECTION ? 1 : 0); ++i)
 						{
 							float f = (float)i / amount;
-							evenlySpacedPoints.Add(
-								new Bezier.EvenlySpacedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
+							pathPoints.Add(
+								new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
 								.ToWorldSpace(transform));
 						}
 					}
 				}
 			}
 
-			return evenlySpacedPoints;
+			// Connect Start and End Point to road
+			if (pathPoints.Count > 0)
+			{
+				for (int end = 0; end < 2; ++end)
+				{
+					var pos = end == 0 ? startPosWorld : goalPosWorld;
+					var point = pathPoints[end * (pathPoints.Count - 1)];
+					var dst = (pos - point.position).magnitude;
+					if (dst >= minDstToRoadToConnect)
+					{
+						int count = (int)(dst / stepSize);
+						for (int i = count - 1; i >= 0; --i)
+						{
+							float t = (float)i / count;
+							var newPoint = new Bezier.OrientedPoint(
+								Vector3.Lerp(pos, point.position, t), point.forward, point.normal);
+							if (end == 0)
+								pathPoints.Insert(0, newPoint);
+							else
+								pathPoints.Add(newPoint);
+						}
+					}
+				}
+			}
+
+			return pathPoints;
 		}
 
 		[Serializable]

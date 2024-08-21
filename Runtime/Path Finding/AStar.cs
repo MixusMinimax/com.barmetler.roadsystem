@@ -1,14 +1,7 @@
-using System;
-
 using System.Linq;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
 using Barmetler.DictExtensions;
-
-
-
 
 namespace Barmetler
 {
@@ -16,6 +9,10 @@ namespace Barmetler
 	{
 		public static class MyExtensions
 		{
+			/// <summary>
+			/// Try to get a value from a Dictionary, but return default if the key is not in the Dictionary.
+			/// </summary>
+			/// <returns>this[k] if exists, defaultValue otherwise</returns>
 			public static V GetWithDefault<K, V>(this Dictionary<K, V> dict, K key, V defaultValue)
 			{
 				return dict.TryGetValue(key, out V value) ? value : defaultValue;
@@ -25,7 +22,6 @@ namespace Barmetler
 
 	public abstract class AStar
 	{
-		[System.Serializable]
 		public class NodeBase
 		{
 			public Vector3 position;
@@ -38,22 +34,37 @@ namespace Barmetler
 			return (node.position - goal.position).magnitude;
 		}
 
+		/// <summary>
+		/// Find the shortest path from one point to another in a di-graph.
+		/// </summary>
+		/// <typeparam name="NodeType">- Must Extend AStar.NodeBase</typeparam>
+		/// <param name="nodes"></param>
+		/// <param name="weights">- weights[x,y] is edge cost from x to y.</param>
+		/// <param name="start"></param>
+		/// <param name="goal"></param>
+		/// <param name="heuristic">- Eulerian distance to goal per default.</param>
+		/// <returns>Shortest path from start to goal.</returns>
 		public static List<NodeType> FindShortestPath<NodeType>(
 			List<NodeType> nodes, TwoDimensionalArray<float> weights, NodeType start, NodeType goal,
 			Heuristic<NodeType> heuristic = null
-			) where NodeType : NodeBase
+		)
+			where NodeType : NodeBase
 		{
 			heuristic ??= DefaultHeuristic;
-			Func<NodeType, float> h = delegate (NodeType node) { return heuristic(node, start); };
+			float h(NodeType node) => heuristic(node, start);
 
 			var path = new List<NodeType>();
 
 			var openSet = new List<NodeType>(new[] { start });
 			var cameFrom = new Dictionary<NodeType, NodeType>();
-			var gScore = new Dictionary<NodeType, float>();
-			gScore[start] = 0;
-			var fScore = new Dictionary<NodeType, float>();
-			fScore[start] = h(start);
+			var gScore = new Dictionary<NodeType, float>
+			{
+				[start] = 0
+			};
+			var fScore = new Dictionary<NodeType, float>
+			{
+				[start] = h(start)
+			};
 
 			int steps = 0;
 
@@ -85,7 +96,7 @@ namespace Barmetler
 				}
 			}
 
-			throw new Exception("No Path Found!");
+			throw new System.Exception("No Path Found!");
 		}
 
 		private static List<NodeType> ReconstructPath<NodeType>(Dictionary<NodeType, NodeType> cameFrom, NodeType current) where NodeType : NodeBase

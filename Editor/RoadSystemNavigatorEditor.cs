@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
@@ -13,7 +11,7 @@ namespace Barmetler.RoadSystem
 
 		private void OnSceneGUI()
 		{
-			if (navigator.transform.hasChanged)
+			if (!Application.isPlaying && navigator.transform.hasChanged)
 			{
 				UpdateNavigator();
 				navigator.transform.hasChanged = false;

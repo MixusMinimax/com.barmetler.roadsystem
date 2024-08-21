@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -23,8 +21,17 @@ namespace Barmetler.RoadSystem
 			public GameObject newRoadPrefab;
 		}
 
+		[System.Serializable]
+		class IntersectionSettings
+        {
+			[Tooltip("The Prefab to use when creating a new intersection.")]
+			public GameObject newIntersectionPrefab;
+		}
+
 		[SerializeField]
 		RoadSettings roadSettings = new RoadSettings();
+		[SerializeField]
+		IntersectionSettings intersectionSettings = new IntersectionSettings();
 
 		[SerializeField]
 		bool drawNavigatorDebug = false;
@@ -43,6 +50,16 @@ namespace Barmetler.RoadSystem
 			set
 			{
 				roadSettings.newRoadPrefab = value;
+				EditorUtility.SetDirty(this);
+			}
+		}
+
+		public GameObject NewIntersectionPrefab
+		{
+			get => intersectionSettings.newIntersectionPrefab;
+			set
+			{
+				intersectionSettings.newIntersectionPrefab = value;
 				EditorUtility.SetDirty(this);
 			}
 		}
@@ -77,22 +94,20 @@ namespace Barmetler.RoadSystem
 			}
 		}
 
-		public const string settingsPath = "Assets/Settings/Editor/RoadSystemSettings.asset";
+		private const string settingsPath = "Assets/Settings/Editor/RoadSystemSettings.asset";
 
-		internal static RoadSystemSettings instance = null;
+		private static RoadSystemSettings instance = null;
 		public static RoadSystemSettings Instance
 		{
 			get
 			{
 				if (instance == null)
 					instance = AssetDatabase.LoadAssetAtPath<RoadSystemSettings>(settingsPath);
-				if (instance == null)
-				{
-					instance = CreateInstance<RoadSystemSettings>();
-					Directory.CreateDirectory(settingsPath);
-					AssetDatabase.CreateAsset(instance, settingsPath);
-					AssetDatabase.SaveAssets();
-				}
+				if (instance != null) return instance;
+				instance = CreateInstance<RoadSystemSettings>();
+				Directory.CreateDirectory("Assets/Settings/Editor");
+				AssetDatabase.CreateAsset(instance, settingsPath);
+				AssetDatabase.SaveAssets();
 				return instance;
 			}
 		}

@@ -1,12 +1,10 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
-using UnityEditor.EditorTools;
-using UnityEditor.UI;
 using System.Linq;
 using System;
-using System.Reflection;
+
+#pragma warning disable CS0618
 
 namespace Barmetler.RoadSystem
 {
@@ -49,6 +47,7 @@ namespace Barmetler.RoadSystem
 			Tools.hidden = false;
 			Undo.undoRedoPerformed -= OnUndoRedo;
 			ActiveEditors.Remove(this);
+			RoadLinkTool.Select(road, selectedAnchorPoint <= road.NumSegments / 2);
 		}
 
 		private void OnSceneGUI()
@@ -122,6 +121,8 @@ namespace Barmetler.RoadSystem
 				Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, EventType.Repaint);
 				Handles.color = Color.yellow * 0.8f;
 				Handles.DrawLine(p.position, p.position + p.normal);
+				Handles.color = Color.red * 0.8f;
+				Handles.DrawLine(p.position, p.position + p.forward);
 			}
 		}
 
@@ -378,7 +379,7 @@ namespace Barmetler.RoadSystem
 				{
 					var v =
 						Bezier.GetEvenlySpacedPoints(
-							road.GetPointsInSegment(seg), new List<float> { road.GetAngle(seg), road.GetAngle(seg + 1) }, 1
+							road.GetPointsInSegment(seg), new List<Vector3> { road.GetNormal(seg), road.GetNormal(seg + 1) }, 1
 						).Select(e => e.ToWorldSpace(road.transform).position).ToArray();
 					var d = HandleUtility.DistanceToPolyLine(v);
 					if (d < minDist)

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Profiling;
 
 namespace Barmetler.RoadSystem
 {
@@ -13,6 +14,8 @@ namespace Barmetler.RoadSystem
 
 		[SerializeField, HideInInspector]
 		List<Vector3> points = new List<Vector3>();
+		[SerializeField, HideInInspector]
+		List<Vector3> normals = new List<Vector3>();
 		[SerializeField, HideInInspector]
 		List<float> angles = new List<float>();
 		[SerializeField, HideInInspector]
@@ -57,8 +60,8 @@ namespace Barmetler.RoadSystem
 			}
 		}
 
-		private readonly ContextDataCache<Bezier.EvenlySpacedPoint[], EvenlySpacedPointsContext> evenlySpacedPointsCache =
-			new ContextDataCache<Bezier.EvenlySpacedPoint[], EvenlySpacedPointsContext>();
+		private readonly ContextDataCache<Bezier.OrientedPoint[], EvenlySpacedPointsContext> evenlySpacedPointsCache =
+			new ContextDataCache<Bezier.OrientedPoint[], EvenlySpacedPointsContext>();
 		private readonly ContextDataCache<float, EvenlySpacedPointsContext> lengthCache = new ContextDataCache<float, EvenlySpacedPointsContext>();
 
 		public Vector3 this[int i]
@@ -79,7 +82,7 @@ namespace Barmetler.RoadSystem
 		public void Clear()
 		{
 			points.Clear();
-			angles.Clear();
+			normals.Clear();
 		}
 
 		public void RefreshEndPoints(bool updatemesh = true)
@@ -87,28 +90,40 @@ namespace Barmetler.RoadSystem
 			if (start != null) start.SetRoad(this, true);
 			if (end != null) end.SetRoad(this, false);
 
-			if (points.Count == 0 || angles.Count == 0)
+			// Convert to using normals:
+			if (angles.Count == NumSegments + 1)
+			{
+				normals.Clear();
+				for (int i = 0; i < NumSegments + 1; ++i)
+				{
+					var forward = i == 0 ? (this[1] - this[0]).normalized : (this[i] - this[i - 1]).normalized;
+					normals.Add(Bezier.NormalFromAngle(forward, angles[i]));
+				}
+				angles.Clear();
+			}
+
+			if (points.Count == 0 || normals.Count == 0)
 			{
 				points = new List<Vector3> { new Vector3(0, 0, 0), new Vector3(0, 0, 1), new Vector3(0, 0, 3), new Vector3(0, 0, 4) };
-				angles = new List<float> { 0, 0 };
-
-				if (start != null)
-					points[0] = transform.InverseTransformPoint(start.transform.position);
-				if (end != null)
-					points[3] = transform.InverseTransformPoint(end.transform.position);
+				normals = new List<Vector3> { Vector3.up, Vector3.up };
 
 				if (start != null)
 				{
-					angles[0] = Bezier.AngleFromNormal(
-						transform.InverseTransformDirection(start.transform.forward),
-						transform.InverseTransformDirection(start.transform.up));
+					points[0] = transform.InverseTransformPoint(start.transform.position);
+					normals[0] = transform.InverseTransformDirection(start.transform.up);
+				}
+				if (end != null)
+				{
+					points[3] = transform.InverseTransformPoint(end.transform.position);
+					normals[1] = transform.InverseTransformDirection(end.transform.up);
+				}
+
+				if (start != null)
+				{
 					points[1] = this[0] + transform.InverseTransformDirection(start.transform.forward) * (this[3] - this[0]).magnitude / 2;
 				}
 				if (end != null)
 				{
-					angles[1] = -Bezier.AngleFromNormal(
-						transform.InverseTransformDirection(end.transform.forward),
-						transform.InverseTransformDirection(end.transform.up));
 					points[2] = this[3] + transform.InverseTransformDirection(end.transform.forward) * (this[0] - this[3]).magnitude / 2;
 				}
 
@@ -123,28 +138,24 @@ namespace Barmetler.RoadSystem
 				{
 					Vector3 a = this[0];
 					Vector3 b = this[1];
-					float c = angles[0];
+					Vector3 n = normals[0];
 					float startLength = (this[1] - this[0]).magnitude;
 					this[0] = transform.InverseTransformPoint(start.transform.position);
 					this[1] = this[0] + transform.InverseTransformDirection(start.transform.forward) * startLength;
-					angles[0] = Bezier.AngleFromNormal(
-						transform.InverseTransformDirection(start.transform.forward),
-						transform.InverseTransformDirection(start.transform.up));
-					if (a != this[0] || b != this[1] || c != angles[0])
+					normals[0] = transform.InverseTransformDirection(start.transform.up);
+					if (a != this[0] || b != this[1] || n != normals[0])
 						OnCurveChanged(updatemesh);
 				}
 				if (end != null)
 				{
 					Vector3 a = this[-1];
 					Vector3 b = this[-2];
-					float c = angles[angles.Count - 1];
+					Vector3 n = normals[normals.Count - 1];
 					float endLength = (this[-2] - this[-1]).magnitude;
 					this[-1] = transform.InverseTransformPoint(end.transform.position);
 					this[-2] = this[-1] + transform.InverseTransformDirection(end.transform.forward) * endLength;
-					angles[angles.Count - 1] = -Bezier.AngleFromNormal(
-						transform.InverseTransformDirection(end.transform.forward),
-						transform.InverseTransformDirection(end.transform.up));
-					if (a != this[-1] || b != this[-2] || c != angles[angles.Count - 1])
+					normals[normals.Count - 1] = transform.InverseTransformDirection(end.transform.up);
+					if (a != this[-1] || b != this[-2] || n == normals[normals.Count - 1])
 						OnCurveChanged(updatemesh);
 				}
 			}
@@ -155,7 +166,7 @@ namespace Barmetler.RoadSystem
 			return new Vector3[] { points[i * 3], points[i * 3 + 1], points[i * 3 + 2], points[LoopIndex(i * 3 + 3)] };
 		}
 
-		public void AppendSegment(Vector3 pos, bool isStart, Vector3 normal = default(Vector3))
+		public void AppendSegment(Vector3 pos, bool isStart, Vector3 normal = default)
 		{
 			if (isStart && start != null) return;
 			if (!isStart && end != null) return;
@@ -169,7 +180,7 @@ namespace Barmetler.RoadSystem
 				this[1] = pos + 0.85f * (this[2] - this[0]);
 				this[1] -= Vector3.Dot(normal, (this[1] - this[0])) * normal;
 				var angle = Bezier.AngleFromNormal(this[0] - this[1], normal);
-				angles.Insert(0, angle);
+				normals.Insert(0, normal);
 			}
 			else
 			{
@@ -178,7 +189,7 @@ namespace Barmetler.RoadSystem
 				this[-2] = pos + 0.85f * (this[-3] - this[-1]);
 				this[-2] -= Vector3.Dot(normal, (this[-2] - this[-1])) * normal;
 				var angle = Bezier.AngleFromNormal(this[-1] - this[-2], normal);
-				angles.Add(angle);
+				normals.Add(normal);
 			}
 
 			if (autoSetControlPoints)
@@ -191,7 +202,7 @@ namespace Barmetler.RoadSystem
 		public void InsertSegment(Vector3 pos, int segmentIndex)
 		{
 			points.InsertRange(segmentIndex * 3 + 2, new Vector3[] { Vector3.zero, pos, Vector3.zero });
-			angles.Insert(segmentIndex + 1, 0);
+			normals.Insert(segmentIndex + 1, Vector3.up);
 
 			if (autoSetControlPoints)
 			{
@@ -211,17 +222,17 @@ namespace Barmetler.RoadSystem
 				if (anchorIndex == 0 && start == null)
 				{
 					points.RemoveRange(0, 3);
-					angles.RemoveRange(0, 1);
+					normals.RemoveRange(0, 1);
 				}
 				else if (anchorIndex == NumPoints - 1 && end == null)
 				{
 					points.RemoveRange(anchorIndex - 2, 3);
-					angles.RemoveRange(anchorIndex / 3, 1);
+					normals.RemoveRange(anchorIndex / 3, 1);
 				}
 				else if (anchorIndex > 0 && anchorIndex < NumPoints - 1)
 				{
 					points.RemoveRange(anchorIndex - 1, 3);
-					angles.RemoveRange(anchorIndex / 3, 1);
+					normals.RemoveRange(anchorIndex / 3, 1);
 				}
 			}
 
@@ -269,27 +280,59 @@ namespace Barmetler.RoadSystem
 				{
 					this[i] = pos;
 				}
+
+				FixNormal((i + 1) / 3);
 			}
 
 			OnCurveChanged();
 		}
 
+		void FixNormal(int index)
+		{
+			Vector3 forward = index == 0 ? (this[1] - this[0]).normalized : (this[index * 3] - this[index * 3 - 1]).normalized;
+			normals[index] = Vector3.ProjectOnPlane(normals[index], forward).normalized;
+		}
+
+		void FixNormals()
+		{
+			for (int i = 0; i <= NumSegments; ++i)
+				FixNormal(i);
+		}
+
+		[System.Obsolete("Use MoveNormal instead!")]
 		public void MoveAngle(int i, float angle)
 		{
-			if ((i == 0 && start != null) || (i == angles.Count - 1 && end != null)) return;
-			angles[i] = angle;
+			if ((i == 0 && start != null) || (i == normals.Count - 1 && end != null)) return;
+			var forward = i == 0 ? points[1] - points[0] : points[3 * i] - points[3 * i - 1];
+			MoveNormal(i, Bezier.NormalFromAngle(forward, angle));
 
 			OnCurveChanged();
 		}
 
+		[System.Obsolete("Use GetNormal instead!")]
 		public float GetAngle(int i)
 		{
-			return angles[i];
+			var forward = i == 0 ? points[1] - points[0] : points[3 * i] - points[3 * i - 1];
+			return Bezier.AngleFromNormal(forward, normals[i]);
+		}
+
+		public void MoveNormal(int i, Vector3 normal)
+		{
+			if ((i == 0 && start != null) || (i == normals.Count - 1 && end != null)) return;
+			normals[i] = normal;
+			FixNormal(i);
+
+			OnCurveChanged();
+		}
+
+		public Vector3 GetNormal(int i)
+		{
+			return normals[i];
 		}
 
 		public void OnValidate()
 		{
-			RefreshEndPoints();
+			RefreshEndPoints(false);
 			if (start != null) start.SetRoad(this, true);
 			if (end != null) end.SetRoad(this, false);
 		}
@@ -350,6 +393,8 @@ namespace Barmetler.RoadSystem
 				}
 			}
 
+			FixNormal(anchorIndex / 3);
+
 			OnCurveChanged();
 		}
 
@@ -371,26 +416,39 @@ namespace Barmetler.RoadSystem
 		// end Auto Control Points
 		#endregion
 
-		public Bezier.EvenlySpacedPoint[] GetEvenlySpacedPoints(float spacing, float resolution = 1)
+		public Bezier.OrientedPoint[] GetEvenlySpacedPoints(float spacing, float resolution = 1)
 		{
 			CalculateEvenlySpacedPoints(spacing, resolution);
 			return evenlySpacedPointsCache.GetData(new EvenlySpacedPointsContext(spacing, resolution));
 		}
+		
+		static readonly ProfilerMarker CalculateEvenlySpacedPointsPerfMarker = new ProfilerMarker("Road.cs CalculateEvenlySpacedPoints");
 
 		void CalculateEvenlySpacedPoints(float spacing, float resolution = 1, bool calculateBoundingBoxes = false)
 		{
 			EvenlySpacedPointsContext context = new EvenlySpacedPointsContext(spacing, resolution);
 			if (evenlySpacedPointsCache.IsValid(context) && !calculateBoundingBoxes) return;
 
-			Bezier.EvenlySpacedPoint[] result;
+			Bezier.OrientedPoint[] result;
 
-			if (calculateBoundingBoxes)
+			var angles = new List<float>();
+			for (int i = 0; i < normals.Count; ++i)
 			{
-				result = Bezier.GetEvenlySpacedPoints(points, angles, ref bounds, boundingBoxes, spacing, resolution);
+				var forward = i == 0 ? points[1] - points[0] : points[i * 3] - points[i * 3 - 1];
+				angles.Add(Bezier.AngleFromNormal(forward, normals[i]));
 			}
-			else
+
+			using (CalculateEvenlySpacedPointsPerfMarker.Auto())
 			{
-				result = Bezier.GetEvenlySpacedPoints(points, angles, spacing, resolution);
+				if (calculateBoundingBoxes)
+				{
+					result = Bezier.GetEvenlySpacedPoints(points, normals, ref bounds, boundingBoxes, spacing,
+						resolution);
+				}
+				else
+				{
+					result = Bezier.GetEvenlySpacedPoints(points, normals, spacing, resolution);
+				}
 			}
 
 			evenlySpacedPointsCache.SetData(result, context);
@@ -398,11 +456,11 @@ namespace Barmetler.RoadSystem
 
 		public float GetLength(float spacing = 1, float resolution = 1)
 		{
-			EvenlySpacedPointsContext context = new EvenlySpacedPointsContext(spacing, resolution);
+			var context = new EvenlySpacedPointsContext(spacing, resolution);
 			if (lengthCache.IsValid(context))
 				return lengthCache.GetData(context);
 
-			Bezier.EvenlySpacedPoint[] points = GetEvenlySpacedPoints(spacing, resolution);
+			Bezier.OrientedPoint[] points = GetEvenlySpacedPoints(spacing, resolution);
 
 			float length = 0;
 			Vector3 lastPoint = Vector3.zero;

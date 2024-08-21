@@ -5,6 +5,8 @@ using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
+	using PointList = List<Bezier.OrientedPoint>;
+
 	public class RoadSystemNavigator : MonoBehaviour
 	{
 		public RoadSystem currentRoadSystem;
@@ -13,6 +15,32 @@ namespace Barmetler.RoadSystem
 
 		public float GraphStepSize = 1;
 		public float MinDistanceYScale = 1;
+		public float MinDistanceToRoadToConnect = 10;
+
+		public PointList CurrentPoints { private set; get; } = new PointList();
+		private AsyncUpdater<PointList> currentPoints;
+
+		private void Awake()
+		{
+			currentPoints = new AsyncUpdater<PointList>(this, GetNewWayPoints, new PointList(), 1f / 144);
+		}
+
+		private void Update()
+		{
+			currentPoints.Update();
+		}
+
+		private void FixedUpdate()
+		{
+			var points = currentPoints.GetData();
+			if (points != CurrentPoints)
+			{
+				CurrentPoints = points;
+				RemovePointsAhead();
+			}
+
+			RemovePointsBehind();
+		}
 
 		public float GetMinDistance(out Road road, out Vector3 closestPoint, out float distanceAlongRoad)
 		{
@@ -40,33 +68,6 @@ namespace Barmetler.RoadSystem
 			return currentRoadSystem.GetMinDistance(
 				transform.position, MinDistanceYScale, out intersection, out anchor, out closestPoint, out distanceAlongRoad);
 		}
-
-		private void FixedUpdate()
-		{
-			lock (lockObject)
-			{
-				if (newPoints != null)
-				{
-					CurrentPoints = newPoints;
-					RemovePointsAhead();
-					newPoints = null;
-				}
-			}
-
-
-			if (!coroutineRunning && Goal != null && currentRoadSystem != null)
-			{
-				coroutineRunning = true;
-				StartCoroutine(CalculateWayPointsAsync());
-			}
-
-			RemovePointsBehind();
-		}
-
-		private object lockObject = new object();
-		private bool coroutineRunning = false;
-		private List<Bezier.EvenlySpacedPoint> newPoints = null;
-		public List<Bezier.EvenlySpacedPoint> CurrentPoints { private set; get; } = new List<Bezier.EvenlySpacedPoint>();
 
 		void RemovePointsBehind()
 		{
@@ -108,40 +109,16 @@ namespace Barmetler.RoadSystem
 			}
 		}
 
-		IEnumerator CalculateWayPointsAsync()
-		{
-			if (currentRoadSystem != null)
-			{
-				try
-				{
-					CalculateNewWayPoints();
-				}
-				catch (System.Exception e)
-				{
-					Debug.LogError(e);
-				}
-			}
-			coroutineRunning = false;
-			yield return null;
-		}
-
 		public void CalculateWayPointsSync()
 		{
-			CalculateNewWayPoints();
-			CurrentPoints = newPoints;
-			//RemovePointsAhead();
-			//RemovePointsBehind();
+			CurrentPoints = GetNewWayPoints();
 		}
 
-		void CalculateNewWayPoints()
+		PointList GetNewWayPoints()
 		{
-			if (!currentRoadSystem) return;
-			var points = currentRoadSystem.FindPath(transform.position, Goal, MinDistanceYScale, Mathf.Max(0.1f, GraphStepSize));
-
-			lock (lockObject)
-			{
-				newPoints = points;
-			}
+			return currentRoadSystem.FindPath(
+				transform.position, Goal, MinDistanceYScale,
+				Mathf.Max(0.1f, GraphStepSize), MinDistanceToRoadToConnect);
 		}
 	}
 }

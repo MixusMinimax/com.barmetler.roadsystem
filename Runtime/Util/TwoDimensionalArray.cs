@@ -1,9 +1,11 @@
-using System.Collections;
-using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Barmetler
 {
+	/// <summary>
+	/// Works just like a normal two-dimensional Array, but is serializable.
+	/// </summary>
 	[System.Serializable]
 	public class TwoDimensionalArray<T>
 	{
@@ -12,6 +14,16 @@ namespace Barmetler
 			array = new T[width * height];
 			this.width = width;
 			this.height = height;
+		}
+
+		public TwoDimensionalArray(T[,] arr)
+		{
+			width = arr.GetLength(0);
+			height = arr.GetLength(1);
+			array = new T[width * height];
+			for (int y = 0; y < height; ++y)
+				for (int x = 0; x < width; ++x)
+					this[x, y] = arr[x, y];
 		}
 
 		[SerializeField]
@@ -27,18 +39,13 @@ namespace Barmetler
 		public int Height => height;
 		public int Length => array.Length;
 
-		public TwoDimensionalArray<T> Clone()
+		public TwoDimensionalArray<T> Clone() => new TwoDimensionalArray<T>(Width, height)
 		{
-			return new TwoDimensionalArray<T>(Width, height)
-			{
-				array = array.Clone() as T[]
-			};
-		}
+			array = array.ToArray()
+		};
 
-		public void CopyInto(TwoDimensionalArray<T> other, Vector2Int dst_position, Vector2Int src_position)
-		{
+		public void CopyInto(TwoDimensionalArray<T> other, Vector2Int dst_position, Vector2Int src_position) =>
 			CopyInto(other, dst_position, src_position, new Vector2Int(Width, Height));
-		}
 
 		public void CopyInto(TwoDimensionalArray<T> other, Vector2Int dst_position, Vector2Int src_position, Vector2Int size)
 		{
@@ -65,10 +72,8 @@ namespace Barmetler
 			}
 		}
 
-		public void CopyInto(T defaultValue, TwoDimensionalArray<T> other, Vector2Int dst_position, Vector2Int src_position)
-		{
+		public void CopyInto(T defaultValue, TwoDimensionalArray<T> other, Vector2Int dst_position, Vector2Int src_position) =>
 			CopyInto(defaultValue, other, dst_position, src_position, new Vector2Int(Width, Height));
-		}
 
 		public void CopyInto(T defaultValue, TwoDimensionalArray<T> other, Vector2Int dst_position, Vector2Int src_position, Vector2Int size)
 		{
@@ -137,5 +142,17 @@ namespace Barmetler
 			get => this[v.x, v.y];
 			set => this[v.x, v.y] = value;
 		}
+
+		public T[,] ToMultiArray()
+		{
+			var ret = new T[width, height];
+			for (int y = 0; y < height; ++y)
+				for (int x = 0; x < width; ++x)
+					ret[x, y] = this[x, y];
+			return ret;
+		}
+
+		public static implicit operator TwoDimensionalArray<T>(T[,] a) => new TwoDimensionalArray<T>(a);
+		public static implicit operator T[,](TwoDimensionalArray<T> t) => t.ToMultiArray();
 	}
 }
