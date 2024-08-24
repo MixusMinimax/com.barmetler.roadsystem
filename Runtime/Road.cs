@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Unity.Profiling;
@@ -201,6 +202,7 @@ namespace Barmetler.RoadSystem
 			OnCurveChanged();
 		}
 
+		[Obsolete("Use InsertSegment(Vector3, int) instead!")]
 		public void InsertSegment(Vector3 pos, int segmentIndex)
 		{
 			points.InsertRange(segmentIndex * 3 + 2, new Vector3[] { Vector3.zero, pos, Vector3.zero });
@@ -214,6 +216,17 @@ namespace Barmetler.RoadSystem
 			{
 				AutoSetAnchorControlPoints(segmentIndex * 3 + 3);
 			}
+			OnCurveChanged();
+		}
+
+		public void InsertSegment(int segmentIndex, float t, Vector3 normal)
+		{
+			if (points.Count < 4) return;
+			var segment = GetPointsInSegment(segmentIndex);
+			var newSegments = Bezier.SubdivideCubic(segment[0], segment[1], segment[2], segment[3], t);
+			points.RemoveRange(segmentIndex * 3, 4);
+			points.InsertRange(segmentIndex * 3, newSegments);
+			normals.Insert(segmentIndex + 1, normal);
 			OnCurveChanged();
 		}
 

@@ -15,12 +15,14 @@ namespace Barmetler
             var p1 = Vector3.Lerp(b, c, t);
             return Vector3.Lerp(p0, p1, t);
         }
-
+        
         public static Vector3 EvaluateCubic(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t)
         {
-            var p0 = EvaluateQuadratic(a, b, c, t);
-            var p1 = EvaluateQuadratic(b, c, d, t);
-            return Vector3.Lerp(p0, p1, t);
+            // Bernstein polynomials
+            return a * ((1 - t) * (1 - t) * (1 - t)) +
+                   b * (3 * (1 - t) * (1 - t) * t) +
+                   c * (3 * (1 - t) * t * t) +
+                   d * (t * t * t);
         }
 
         public static Vector3 DeriveQuadratic(Vector3 a, Vector3 b, Vector3 c, float t)
@@ -31,6 +33,40 @@ namespace Barmetler
         public static Vector3 DeriveCubic(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t)
         {
             return EvaluateQuadratic(3 * (b - a), 3 * (c - b), 3 * (d - c), t);
+        }
+
+        /// <summary>
+        /// Approximate the inverse of a cubic bezier curve.
+        /// </summary>
+        public static float InverseCubic(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 p)
+        {
+            var t = 0.5f;
+            for (var i = 0; i < 100; ++i)
+            {
+                var p2 = EvaluateCubic(a, b, c, d, t);
+                var dp = DeriveCubic(a, b, c, d, t);
+                var delta = p2 - p;
+                var dot = Vector3.Dot(delta, dp);
+                if (dot == 0) // very unlikely, but possible
+                    break;
+                t -= Vector3.Dot(delta, dp) / Vector3.Dot(dp, dp);
+            }
+            return t;
+        }
+        
+        /// <summary>
+        /// Subdivide a cubic bezier curve.
+        /// </summary>
+        /// <returns>7 points (2 segments)</returns>
+        public static Vector3[] SubdivideCubic(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t)
+        {
+            var ab = Vector3.Lerp(a, b, t);
+            var bc = Vector3.Lerp(b, c, t);
+            var cd = Vector3.Lerp(c, d, t);
+            var abbc = Vector3.Lerp(ab, bc, t);
+            var bccd = Vector3.Lerp(bc, cd, t);
+            var abbcBccd = Vector3.Lerp(abbc, bccd, t);
+            return new[] { a, ab, abbc, abbcBccd, bccd, cd, d };
         }
 
         /// <summary>

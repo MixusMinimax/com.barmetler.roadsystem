@@ -57,7 +57,7 @@ namespace Barmetler.RoadSystem
 			else if (Event.current.type == EventType.MouseUp && Event.current.button == 1)
 				rightMouseDown = false;
 
-			int controlID = GUIUtility.GetControlID(FocusType.Passive);
+			var controlID = GUIUtility.GetControlID(FocusType.Passive);
 
 			if (selectedAnchorPoint >= road.NumPoints) selectedAnchorPoint = road.NumPoints - 1;
 
@@ -106,9 +106,9 @@ namespace Barmetler.RoadSystem
 			}
 
 			var points = road.GetEvenlySpacedPoints(1, 1).Select(e => e.ToWorldSpace(road.transform)).ToArray();
-			Vector3 lastPos = Vector3.zero;
+			var lastPos = Vector3.zero;
 			Handles.color = Color.green * 0.8f;
-			for (int i = 0; i < points.Length; ++i)
+			for (var i = 0; i < points.Length; ++i)
 			{
 				var p = points[i];
 				if (i > 0)
@@ -224,9 +224,9 @@ namespace Barmetler.RoadSystem
 							Handles.SphereHandleCap(0, pos, Quaternion.identity,
 								(hasModifiers ? 0.2f : 0.3f) * HandleUtility.GetHandleSize(pos), EventType.Repaint);
 							Handles.color = Color.red + Color.white * 0.4f;
-							for (int i = -1; i <= 1; i += 2)
+							for (var i = -1; i <= 1; i += 2)
 							{
-								int j = selectedAnchorPoint + i;
+								var j = selectedAnchorPoint + i;
 								if (j < 0 || j >= road.NumPoints) continue;
 								var hPos = road.transform.TransformPoint(road[j]);
 
@@ -260,7 +260,7 @@ namespace Barmetler.RoadSystem
 					case Tool.Rect:
 
 						Handles.color = Color.black;
-						for (int i = 0; i < road.NumPoints; i += 3)
+						for (var i = 0; i < road.NumPoints; i += 3)
 						{
 							var p = road.transform.TransformPoint(road[i]);
 
@@ -372,35 +372,50 @@ namespace Barmetler.RoadSystem
 			if (e.shift && !e.alt && !e.control)
 			{
 				var minDist = float.PositiveInfinity;
-				int segmentIndex = -1;
+				var segmentIndex = -1;
 				var segment = new Vector3[] { };
+				var segmentNormals = new Vector3[] { };
 
-				for (int seg = 0; seg < road.NumSegments; ++seg)
+				for (var seg = 0; seg < road.NumSegments; ++seg)
 				{
-					var v =
-						Bezier.GetEvenlySpacedPoints(
-							road.GetPointsInSegment(seg), new List<Vector3> { road.GetNormal(seg), road.GetNormal(seg + 1) }, 1
-						).Select(e => e.ToWorldSpace(road.transform).position).ToArray();
+					var orientedPoints = Bezier.GetEvenlySpacedPoints(
+						road.GetPointsInSegment(seg),
+						new List<Vector3> { road.GetNormal(seg), road.GetNormal(seg + 1) }, 1
+					).Select(e => e.ToWorldSpace(road.transform)).ToArray();
+					var v = orientedPoints.Select(e => e.position).ToArray();
 					var d = HandleUtility.DistanceToPolyLine(v);
-					if (d < minDist)
-					{
-						minDist = d;
-						segmentIndex = seg;
-						segment = v;
-					}
+					if (!(d < minDist)) continue;
+					minDist = d;
+					segmentIndex = seg;
+					segment = v;
+					segmentNormals = orientedPoints.Select(e => e.normal).ToArray();
 				}
 
 				if (segmentIndex != -1)
 				{
-					var hoverPos = HandleUtility.ClosestPointToPolyLine(segment);
+					var hoverPos = ClosestPointToPolyLine(segment, out var polyIndex, out var polyT);
 
 					Handles.color = Color.white;
 					Handles.SphereHandleCap(0, hoverPos, Quaternion.identity, 1, EventType.Repaint);
 
+					var s = road
+						.GetPointsInSegment(segmentIndex)
+						.Select(t => road.transform.TransformPoint(t))
+						.ToArray();
+					// get t value of the closest point on the segment
+					var t = Bezier.InverseCubic(s[0], s[1], s[2], s[3], hoverPos);
+					var normal = Vector3.Lerp(
+						segmentNormals[polyIndex],
+						segmentNormals[Mathf.Min(polyIndex + 1, segmentNormals.Length - 1)], polyT
+					).normalized;
+
+					Handles.color = Color.red;
+					Handles.DrawLine(hoverPos, hoverPos + normal * 2);
+
 					if (e.type == EventType.MouseDown && e.button == 0)
 					{
 						Undo.RecordObject(road, "Insert Segment");
-						road.InsertSegment(road.transform.InverseTransformPoint(hoverPos), segmentIndex);
+						road.InsertSegment(segmentIndex, t, normal);
 					}
 				}
 
@@ -540,7 +555,7 @@ namespace Barmetler.RoadSystem
 
 		public bool IsEndPoint(int i, YesNoMaybe shouldBeConnectedToAnchor = YesNoMaybe.MAYBE)
 		{
-			bool isEndPoint = (i == 0 || i == road.NumPoints - 1);
+			var isEndPoint = (i == 0 || i == road.NumPoints - 1);
 			if (!isEndPoint) return false;
 
 			bool isConnected = (i == 0 ? road.start : road.end);
@@ -672,8 +687,8 @@ namespace Barmetler.RoadSystem
 			{
 				if (selectedAnchorPoint != -1)
 				{
-					Vector3 oldVec = road.transform.TransformPoint(road[selectedAnchorPoint]);
-					Vector3 newVec = EditorGUILayout.Vector3Field("Position", oldVec);
+					var oldVec = road.transform.TransformPoint(road[selectedAnchorPoint]);
+					var newVec = EditorGUILayout.Vector3Field("Position", oldVec);
 					if (newVec != oldVec)
 					{
 						Undo.RecordObject(road, "Move Point");
@@ -711,8 +726,8 @@ namespace Barmetler.RoadSystem
 					}
 
 					GUILayout.Label("Roll Angle", GUILayout.Width(EditorGUIUtility.labelWidth));
-					float oldFloat = road.GetAngle(selectedAnchorPoint / 3);
-					float newFloat = EditorGUILayout.DelayedFloatField(oldFloat);
+					var oldFloat = road.GetAngle(selectedAnchorPoint / 3);
+					var newFloat = EditorGUILayout.DelayedFloatField(oldFloat);
 					if (newFloat != oldFloat)
 					{
 						Undo.RecordObject(road, "Change Angle");
@@ -729,7 +744,7 @@ namespace Barmetler.RoadSystem
 			EditorGUI.BeginChangeCheck();
 
 			GUILayout.Space(10);
-			Rect rect = EditorGUILayout.GetControlRect(false, 1);
+			var rect = EditorGUILayout.GetControlRect(false, 1);
 			rect.height = 1;
 			EditorGUI.DrawRect(rect, new Color(0.5f, 0.5f, 0.5f, 1));
 			GUILayout.Space(10);
@@ -765,13 +780,40 @@ namespace Barmetler.RoadSystem
 		{
 			GUILayout.BeginHorizontal();
 			GUILayout.Label(label, GUILayout.Width(EditorGUIUtility.labelWidth));
-			bool newValue = GUILayout.Toggle(value, "");
+			var newValue = GUILayout.Toggle(value, "");
 			if (newValue != value)
 			{
 				Undo.RecordObject(obj, $"Toggle {label}");
 				setter(newValue);
 			}
 			if (endHorizontal) GUILayout.EndHorizontal();
+		}
+		
+		// copied from HandleUtility, but with added out values
+		private static Vector3 ClosestPointToPolyLine(Vector3[] vertices, out int index, out float t)
+		{
+			var num1 = HandleUtility.DistanceToLine(vertices[0], vertices[1]);
+			var index1 = 0;
+			for (var index2 = 2; index2 < vertices.Length; ++index2)
+			{
+				var line = HandleUtility.DistanceToLine(vertices[index2 - 1], vertices[index2]);
+				if ((double) line < (double) num1)
+				{
+					num1 = line;
+					index1 = index2 - 1;
+				}
+			}
+			var vertex1 = vertices[index1];
+			var vertex2 = vertices[index1 + 1];
+			var rhs = UnityEngine.Event.current.mousePosition - HandleUtility.WorldToGUIPoint(vertex1);
+			var lhs = HandleUtility.WorldToGUIPoint(vertex2) - HandleUtility.WorldToGUIPoint(vertex1);
+			var magnitude = lhs.magnitude;
+			var num2 = Vector3.Dot((Vector3) lhs, (Vector3) rhs);
+			if ((double) magnitude > 9.999999974752427E-07)
+				num2 /= magnitude * magnitude;
+			t = Mathf.Clamp01(num2);
+			index = index1;
+			return Vector3.Lerp(vertex1, vertex2, t);
 		}
 	}
 }
