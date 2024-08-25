@@ -11,22 +11,22 @@ namespace Barmetler.RoadSystem
 	[CustomEditor(typeof(Road))]
 	public class RoadEditor : Editor
 	{
-		static HashSet<RoadEditor> ActiveEditors = new HashSet<RoadEditor>();
+		private static HashSet<RoadEditor> ActiveEditors = new HashSet<RoadEditor>();
 		public static RoadEditor GetEditor(GameObject gameObject) =>
 			ActiveEditors.FirstOrDefault(e => ((Road)e.target).gameObject == gameObject);
 
 		public Road road { get; private set; }
-		RoadSystemSettings settings;
-		SerializedObject settingsSerialized;
-		Tool lastTool;
+		private RoadSystemSettings settings;
+		private SerializedObject settingsSerialized;
+		private Tool lastTool;
 
-		int selectedAnchorPoint = -1;
+		private int selectedAnchorPoint = -1;
 
 		public int SelectedAnchorPoint => Tools.current == Tool.Custom ? -1 : selectedAnchorPoint;
 
-		bool rightMouseDown = false;
+		private bool rightMouseDown = false;
 
-		public void OnUndoRedo()
+		private void OnUndoRedo()
 		{
 			road.OnCurveChanged(true);
 		}
@@ -73,7 +73,7 @@ namespace Barmetler.RoadSystem
 			GUIDrawWindow();
 		}
 
-		void UpdateToolVisibility()
+		private void UpdateToolVisibility()
 		{
 			switch (Tools.current)
 			{
@@ -98,7 +98,7 @@ namespace Barmetler.RoadSystem
 			lastTool = Tools.current;
 		}
 
-		void DrawInfo(int controlID)
+		private void DrawInfo(int controlID)
 		{
 			if (settings.DrawBoundingBoxes)
 			{
@@ -126,9 +126,9 @@ namespace Barmetler.RoadSystem
 			}
 		}
 
-		readonly Dictionary<int, Quaternion> initialRotations = new Dictionary<int, Quaternion>();
+		private readonly Dictionary<int, Quaternion> initialRotations = new Dictionary<int, Quaternion>();
 
-		void GUIControlPoints(int controlID)
+		private void GUIControlPoints(int controlID)
 		{
 			var e = Event.current;
 			var hasModifiers = (e.alt || e.shift || e.control);
@@ -149,18 +149,15 @@ namespace Barmetler.RoadSystem
 						.ToList();
 
 					Handles.color = hasModifiers ? Color.grey : Color.red * 0.8f;
-					foreach (var p in points)
+					foreach (var p in points.Where(p => selectedAnchorPoint != p.index))
 					{
-						if (selectedAnchorPoint != p.index)
-						{
-							if (hasModifiers)
-								Handles.SphereHandleCap(0, p.pos, Quaternion.identity, 0.2f * HandleUtility.GetHandleSize(p.pos), EventType.Repaint);
-							else if (Handles.Button(p.pos, Quaternion.identity,
-								 0.3f * HandleUtility.GetHandleSize(p.pos),
-								 0.3f * HandleUtility.GetHandleSize(p.pos),
-								Handles.SphereHandleCap))
-								selectedAnchorPoint = p.index;
-						}
+						if (hasModifiers)
+							Handles.SphereHandleCap(0, p.pos, Quaternion.identity, 0.2f * HandleUtility.GetHandleSize(p.pos), EventType.Repaint);
+						else if (Handles.Button(p.pos, Quaternion.identity,
+							         0.3f * HandleUtility.GetHandleSize(p.pos),
+							         0.3f * HandleUtility.GetHandleSize(p.pos),
+							         Handles.SphereHandleCap))
+							selectedAnchorPoint = p.index;
 					}
 					break;
 			}
@@ -174,158 +171,151 @@ namespace Barmetler.RoadSystem
 				rot = RoadUtilities.GetRotationAtWorldSpace(road, selectedAnchorPoint, out forward, out _);
 			}
 
-			if (!e.control)
+			if (e.control) return;
+			switch (Tools.current)
 			{
-				switch (Tools.current)
-				{
-					case Tool.Move:
-						if (selectedAnchorPoint != -1)
+				case Tool.Move:
+					if (selectedAnchorPoint != -1)
+					{
+						var newPos = Handles.PositionHandle(pos, Tools.pivotRotation == PivotRotation.Local ? rot : Quaternion.identity);
+						if (newPos != pos)
 						{
-							var newPos = Handles.PositionHandle(pos, Tools.pivotRotation == PivotRotation.Local ? rot : Quaternion.identity);
-							if (newPos != pos)
-							{
-								Undo.RecordObject(road, "Move Control Point");
-								road.MovePoint(selectedAnchorPoint, road.transform.InverseTransformPoint(newPos));
-							}
+							Undo.RecordObject(road, "Move Control Point");
+							road.MovePoint(selectedAnchorPoint, road.transform.InverseTransformPoint(newPos));
 						}
-						break;
+					}
+					break;
 
-					case Tool.Rotate:
-						if (selectedAnchorPoint != -1)
+				case Tool.Rotate:
+					if (selectedAnchorPoint != -1)
+					{
+						var hc = GUIUtility.hotControl;
+						var newRot = Handles.RotationHandle(Tools.pivotRotation == PivotRotation.Local ? rot : Quaternion.identity, pos);
+						if (hc != GUIUtility.hotControl)
 						{
-							var hc = GUIUtility.hotControl;
-							var newRot = Handles.RotationHandle(Tools.pivotRotation == PivotRotation.Local ? rot : Quaternion.identity, pos);
-							if (hc != GUIUtility.hotControl)
-							{
-								initialRotations[GUIUtility.hotControl] = rot;
-							}
-
-							if ((Tools.pivotRotation == PivotRotation.Global && newRot != Quaternion.identity) ||
-								(Tools.pivotRotation == PivotRotation.Local && newRot != rot))
-							{
-								if (Tools.pivotRotation == PivotRotation.Global)
-								{
-									if (GUIUtility.hotControl == 1317) // 1317
-										newRot *= rot;
-									else
-										newRot *= initialRotations[GUIUtility.hotControl];
-								}
-
-								Undo.RecordObject(road, "Rotate Control Point");
-								RoadUtilities.SetRotationAtWorldSpace(road, selectedAnchorPoint, newRot);
-							}
+							initialRotations[GUIUtility.hotControl] = rot;
 						}
-						break;
 
-					case Tool.Scale:
-						if (selectedAnchorPoint != -1)
+						if ((Tools.pivotRotation == PivotRotation.Global && newRot != Quaternion.identity) ||
+						    (Tools.pivotRotation == PivotRotation.Local && newRot != rot))
 						{
-							Handles.color = hasModifiers ? Color.grey : Color.white * 0.7f;
-							Handles.SphereHandleCap(0, pos, Quaternion.identity,
-								(hasModifiers ? 0.2f : 0.3f) * HandleUtility.GetHandleSize(pos), EventType.Repaint);
-							Handles.color = Color.red + Color.white * 0.4f;
-							for (var i = -1; i <= 1; i += 2)
+							if (Tools.pivotRotation == PivotRotation.Global)
 							{
-								var j = selectedAnchorPoint + i;
-								if (j < 0 || j >= road.NumPoints) continue;
-								var hPos = road.transform.TransformPoint(road[j]);
-
-								Handles.color = hasModifiers ? Color.grey : Color.red;
-								Handles.DrawLine(pos, hPos);
-
-								Handles.color = hasModifiers ? Color.grey : Color.red + Color.white * 0.4f;
-								if (hasModifiers)
-								{
-									Handles.SphereHandleCap(0, hPos, Quaternion.identity,
-										0.2f * HandleUtility.GetHandleSize(pos), EventType.Repaint);
-								}
+								if (GUIUtility.hotControl == 1317) // 1317
+									newRot *= rot;
 								else
-								{
-									var nPos = Handles.FreeMoveHandle(hPos, Quaternion.identity,
-										0.3f * HandleUtility.GetHandleSize(pos), Vector3.zero, Handles.SphereHandleCap);
-
-									if (hPos != nPos)
-									{
-										Undo.RecordObject(road, "Scale Control Point");
-										var dot = Vector3.Dot(forward, nPos - pos);
-										if (i == -1) dot = Mathf.Min(dot, -0.1f);
-										else dot = Mathf.Max(dot, 0.1f);
-										road.MovePoint(j, road.transform.InverseTransformPoint(pos + forward * dot));
-									}
-								}
+									newRot *= initialRotations[GUIUtility.hotControl];
 							}
+
+							Undo.RecordObject(road, "Rotate Control Point");
+							RoadUtilities.SetRotationAtWorldSpace(road, selectedAnchorPoint, newRot);
 						}
-						break;
+					}
+					break;
 
-					case Tool.Rect:
-
-						Handles.color = Color.black;
-						for (var i = 0; i < road.NumPoints; i += 3)
+				case Tool.Scale:
+					if (selectedAnchorPoint != -1)
+					{
+						Handles.color = hasModifiers ? Color.grey : Color.white * 0.7f;
+						Handles.SphereHandleCap(0, pos, Quaternion.identity,
+							(hasModifiers ? 0.2f : 0.3f) * HandleUtility.GetHandleSize(pos), EventType.Repaint);
+						Handles.color = Color.red + Color.white * 0.4f;
+						for (var i = -1; i <= 1; i += 2)
 						{
-							var p = road.transform.TransformPoint(road[i]);
+							var j = selectedAnchorPoint + i;
+							if (j < 0 || j >= road.NumPoints) continue;
+							var hPos = road.transform.TransformPoint(road[j]);
 
-							if (i > 0)
-							{
-								var p2 = road.transform.TransformPoint(road[i - 1]);
-								Handles.DrawLine(p, p2);
-							}
-							if (i < road.NumPoints - 1)
-							{
-								var p2 = road.transform.TransformPoint(road[i + 1]);
-								Handles.DrawLine(p, p2);
-							}
-						}
+							Handles.color = hasModifiers ? Color.grey : Color.red;
+							Handles.DrawLine(pos, hPos);
 
-						var points = Enumerable
-							.Range(0, road.NumPoints)
-							.Select(e => (index: e, pos: road.transform.TransformPoint(road[e])))
-							.OrderByDescending(e => Vector3.Dot(Camera.current.transform.forward, e.pos - Camera.current.transform.position))
-							.ToList();
-
-						foreach (var p in points)
-						{
-							var c = ((p.index + 1) / 3 * 3) == selectedAnchorPoint ? (0.7f * Color.cyan + 0.3f * Color.black) : Color.red;
-							Handles.color = e.alt ? Color.grey : (p.index % 3 == 0 ? c : (c + Color.white * 0.4f));
-							if (e.alt || e.shift || e.control)
+							Handles.color = hasModifiers ? Color.grey : Color.red + Color.white * 0.4f;
+							if (hasModifiers)
 							{
-								Handles.SphereHandleCap(0, p.pos, Quaternion.identity,
-									0.2f * HandleUtility.GetHandleSize(p.pos), EventType.Repaint);
+								Handles.SphereHandleCap(0, hPos, Quaternion.identity,
+									0.2f * HandleUtility.GetHandleSize(pos), EventType.Repaint);
 							}
 							else
 							{
-								var newPos = Handles.FreeMoveHandle($"Handle-{p.index}".GetHashCode(), p.pos, Quaternion.identity,
-									 (p.index % 3 == 0 ? 0.3f : 0.25f) * HandleUtility.GetHandleSize(p.pos),
-									Vector3.zero, Handles.SphereHandleCap);
+								var nPos = Handles.FreeMoveHandle(hPos, Quaternion.identity,
+									0.3f * HandleUtility.GetHandleSize(pos), Vector3.zero, Handles.SphereHandleCap);
 
-								if (p.pos != newPos)
+								if (hPos != nPos)
 								{
-									selectedAnchorPoint = (p.index + 1) / 3 * 3;
-									Undo.RecordObject(road, "Move Control Point");
-									road.MovePoint(p.index, road.transform.InverseTransformPoint(newPos));
+									Undo.RecordObject(road, "Scale Control Point");
+									var dot = Vector3.Dot(forward, nPos - pos);
+									if (i == -1) dot = Mathf.Min(dot, -0.1f);
+									else dot = Mathf.Max(dot, 0.1f);
+									road.MovePoint(j, road.transform.InverseTransformPoint(pos + forward * dot));
 								}
 							}
 						}
+					}
+					break;
 
-						break;
-				}
+				case Tool.Rect:
+
+					Handles.color = Color.black;
+					for (var i = 0; i < road.NumPoints; i += 3)
+					{
+						var p = road.transform.TransformPoint(road[i]);
+
+						if (i > 0)
+						{
+							var p2 = road.transform.TransformPoint(road[i - 1]);
+							Handles.DrawLine(p, p2);
+						}
+						if (i < road.NumPoints - 1)
+						{
+							var p2 = road.transform.TransformPoint(road[i + 1]);
+							Handles.DrawLine(p, p2);
+						}
+					}
+
+					var points = Enumerable
+						.Range(0, road.NumPoints)
+						.Select(e => (index: e, pos: road.transform.TransformPoint(road[e])))
+						.OrderByDescending(e => Vector3.Dot(Camera.current.transform.forward, e.pos - Camera.current.transform.position))
+						.ToList();
+
+					foreach (var p in points)
+					{
+						var c = ((p.index + 1) / 3 * 3) == selectedAnchorPoint ? (0.7f * Color.cyan + 0.3f * Color.black) : Color.red;
+						Handles.color = e.alt ? Color.grey : (p.index % 3 == 0 ? c : (c + Color.white * 0.4f));
+						if (e.alt || e.shift || e.control)
+						{
+							Handles.SphereHandleCap(0, p.pos, Quaternion.identity,
+								0.2f * HandleUtility.GetHandleSize(p.pos), EventType.Repaint);
+						}
+						else
+						{
+							var newPos = Handles.FreeMoveHandle($"Handle-{p.index}".GetHashCode(), p.pos, Quaternion.identity,
+								(p.index % 3 == 0 ? 0.3f : 0.25f) * HandleUtility.GetHandleSize(p.pos),
+								Vector3.zero, Handles.SphereHandleCap);
+
+							if (p.pos != newPos)
+							{
+								selectedAnchorPoint = (p.index + 1) / 3 * 3;
+								Undo.RecordObject(road, "Move Control Point");
+								road.MovePoint(p.index, road.transform.InverseTransformPoint(newPos));
+							}
+						}
+					}
+					break;
 			}
 		}
 
-		readonly Dictionary<KeyCode, bool> wasDown = new Dictionary<KeyCode, bool>();
+		private readonly Dictionary<KeyCode, bool> wasDown = new Dictionary<KeyCode, bool>();
 
-		bool WasDown(KeyCode keyCode)
+		private bool WasDown(KeyCode keyCode)
 		{
-			if (wasDown.ContainsKey(keyCode))
-			{
-				return wasDown[keyCode];
-			}
-			else
-			{
-				return wasDown[keyCode] = false;
-			}
+			if (wasDown.TryGetValue(keyCode, out var down))
+				return down;
+
+			return wasDown[keyCode] = false;
 		}
 
-		void GUIAddOrRemovePoints(int controlID)
+		private void GUIAddOrRemovePoints(int controlID)
 		{
 			var e = Event.current;
 
@@ -665,9 +655,9 @@ namespace Barmetler.RoadSystem
 
 		#endregion Actions
 
-		static Rect windowRect = new Rect(10000, 10000, 300, 300);
+		private static Rect windowRect = new Rect(10000, 10000, 300, 300);
 
-		void GUIDrawWindow()
+		private void GUIDrawWindow()
 		{
 			// only enable when a point can be selected
 			switch (Tools.current)
@@ -680,10 +670,10 @@ namespace Barmetler.RoadSystem
 				default: return;
 			}
 
-			windowRect.x = Mathf.Clamp(windowRect.x, 0, Screen.width - windowRect.width - 2);
-			windowRect.y = Mathf.Clamp(windowRect.y, 22, Screen.height - windowRect.height - 21);
+			windowRect.x = Mathf.Clamp(windowRect.x, 0, SceneView.lastActiveSceneView.camera.pixelWidth - windowRect.width);
+			windowRect.y = Mathf.Clamp(windowRect.y, 0, SceneView.lastActiveSceneView.camera.pixelHeight - windowRect.height);
 
-			windowRect = GUI.Window(0, windowRect, (int WindowID) =>
+			windowRect = GUI.Window(0, windowRect, (int windowID) =>
 			{
 				if (selectedAnchorPoint != -1)
 				{
@@ -728,14 +718,15 @@ namespace Barmetler.RoadSystem
 					GUILayout.Label("Roll Angle", GUILayout.Width(EditorGUIUtility.labelWidth));
 					var oldFloat = road.GetAngle(selectedAnchorPoint / 3);
 					var newFloat = EditorGUILayout.DelayedFloatField(oldFloat);
-					if (newFloat != oldFloat)
+					// ReSharper disable once CompareOfFloatsByEqualityOperator
+					if (newFloat != oldFloat) // comparison is used for change detection, so it's not a mistake
 					{
 						Undo.RecordObject(road, "Change Angle");
 						road.MoveAngle(selectedAnchorPoint / 3, newFloat);
 					}
 				}
 				GUI.DragWindow();
-			}, selectedAnchorPoint != -1 ? $"Point {selectedAnchorPoint}" : "No Point Selected");
+			}, selectedAnchorPoint != -1 ? $"Point {selectedAnchorPoint / 3}" : "No Point Selected");
 		}
 
 		public override void OnInspectorGUI()
@@ -776,7 +767,7 @@ namespace Barmetler.RoadSystem
 			}
 		}
 
-		void BoolField(string label, bool value, Action<bool> setter, UnityEngine.Object obj, bool endHorizontal = true)
+		private void BoolField(string label, bool value, Action<bool> setter, UnityEngine.Object obj, bool endHorizontal = true)
 		{
 			GUILayout.BeginHorizontal();
 			GUILayout.Label(label, GUILayout.Width(EditorGUIUtility.labelWidth));
