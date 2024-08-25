@@ -673,7 +673,8 @@ namespace Barmetler.RoadSystem
 			windowRect.x = Mathf.Clamp(windowRect.x, 0, SceneView.lastActiveSceneView.camera.pixelWidth - windowRect.width);
 			windowRect.y = Mathf.Clamp(windowRect.y, 0, SceneView.lastActiveSceneView.camera.pixelHeight - windowRect.height);
 
-			windowRect = GUI.Window(0, windowRect, (int windowID) =>
+			Handles.BeginGUI();
+			windowRect = GUILayout.Window(0, windowRect, (int windowID) =>
 			{
 				if (selectedAnchorPoint != -1)
 				{
@@ -727,6 +728,7 @@ namespace Barmetler.RoadSystem
 				}
 				GUI.DragWindow();
 			}, selectedAnchorPoint != -1 ? $"Point {selectedAnchorPoint / 3}" : "No Point Selected");
+			Handles.EndGUI();
 		}
 
 		public override void OnInspectorGUI()
