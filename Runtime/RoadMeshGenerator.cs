@@ -485,7 +485,7 @@ namespace Barmetler.RoadSystem
 			job.Run();
 
 			_extractResultsMarker.Begin();
-			var newVertices = job.ResultVertices.ToArray();
+			var newVertices = job.ResultVertices.AsArray().ToArray();
 			var newIndices = job.ResultIndices.AsEnumerable().Select(e => e.AsEnumerable().ToArray()).ToArray();
 			var newUVs = job.ResultUVs.AsEnumerable().Select(e => e.AsEnumerable().ToArray()).ToArray();
 			_extractResultsMarker.End();
@@ -588,11 +588,11 @@ namespace Barmetler.RoadSystem
 				var remainderIndices = new UnsafeList<UnsafeList<int>>(Indices.Length, Allocator.Temp);
 				for (var i = 0; i < Indices.Length; ++i)
 				{
-					remainderIndices[i] = new UnsafeList<int>(Indices[i].Length, Allocator.Temp);
+					remainderIndices.Add(new UnsafeList<int>(Indices[i].Length, Allocator.Temp));
 					remainderIndices.ElementAt(i).CopyFrom(in Indices.ElementAt(i));
 				}
 
-				var remainderUVs = new UnsafeList<UnsafeList<Vector2>>(8, Allocator.Temp);
+				var remainderUVs = new UnsafeList<UnsafeList<Vector2>>(UVs.Length, Allocator.Temp);
 				for (var i = 0; i < UVs.Length; ++i)
 				{
 					remainderUVs.Add(new UnsafeList<Vector2>(UVs[i].Length, Allocator.Temp));
@@ -627,7 +627,7 @@ namespace Barmetler.RoadSystem
 					remainderUVs[i] = uvs;
 				}
 
-				ResultVertices.AddRange(remainderVertices);
+				ResultVertices.AddRange(remainderVertices.AsArray());
 				for (var i = 0; i < submeshCount; ++i)
 					ResultIndices.ElementAt(i).AddRange(remainderIndices[i]);
 				for (var i = 0; i < 8; ++i)
@@ -694,7 +694,7 @@ namespace Barmetler.RoadSystem
 			)
 			{
 				var newVertices = new UnsafeList<Vector3>(vertices.Length, Allocator.Temp);
-				newVertices.CopyFrom(vertices);
+				newVertices.CopyFrom(vertices.AsArray());
 				var newIndices = new UnsafeList<int>(indices.Length / 2, Allocator.Temp);
 				var newUVs = new UnsafeList<UnsafeList<Vector2>>(8, Allocator.Temp);
 				for (var i = 0; i < uvs.Length; ++i)
@@ -744,7 +744,7 @@ namespace Barmetler.RoadSystem
 
 							var ac = vertices[c] - vertices[a];
 							var bc = vertices[c] - vertices[b];
-							if (vertices[c].z - vertices[a].z < 1e-6 || vertices[c].z - vertices[b].z < 1e-6) break;
+							// if (vertices[c].z - vertices[a].z < 1e-6 || vertices[c].z - vertices[b].z < 1e-6) break;
 							var va = vertices[a] + ac * (maxZ - vertices[a].z) / (vertices[c].z - vertices[a].z);
 							var vb = vertices[b] + bc * (maxZ - vertices[b].z) / (vertices[c].z - vertices[b].z);
 

@@ -239,10 +239,10 @@ namespace Barmetler
                 BoundingBoxes = new NativeList<Bounds>(Allocator.TempJob)
             };
             job.Run();
-            var result = job.Result.ToArray();
+            var result = job.Result.AsArray().ToArray();
             bounds = job.Bounds;
             boundingBoxes?.Clear();
-            boundingBoxes?.AddRange(job.BoundingBoxes.ToArray());
+            boundingBoxes?.AddRange(job.BoundingBoxes.AsArray().ToArray());
             job.Points.Dispose();
             job.Normals.Dispose();
             job.Result.Dispose();
@@ -405,7 +405,19 @@ namespace Barmetler
                 start.normal = Normals[0];
                 start.forward = DeriveCubic(Points[0], Points[1], Points[2], Points[3], 0).normalized;
                 Result[0] = start;
-                if (Result.Length <= 1) return;
+                if (Result.Length == 1)
+                {
+                    Result.Add(new OrientedPoint(
+                        Points[LoopIndex(-1)],
+                        DeriveCubic(Points[LoopIndex(-4)], Points[LoopIndex(-3)], Points[LoopIndex(-2)],
+                            Points[LoopIndex(-1)], 1).normalized,
+                        Normals[Normals.Length - 1]
+                    ));
+                    if (BoundingBoxes.Length > 0)
+                        BoundingBoxes[BoundingBoxes.Length - 1].Encapsulate(Points[LoopIndex(-1)]);
+                    Bounds.Encapsulate(Points[LoopIndex(-1)]);
+                    return;
+                }
                 var end = Result[Result.Length - 1];
                 end.position = Points[LoopIndex(-1)];
                 end.normal = Normals[Normals.Length - 1];
