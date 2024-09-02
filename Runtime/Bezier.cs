@@ -102,7 +102,7 @@ namespace Barmetler
 
         public static OrientedPoint[] GetEvenlySpacedPoints(
             IEnumerable<Vector3> points, IEnumerable<Vector3> normals, out Bounds bounds, List<Bounds> boundingBoxes,
-            float spacing, float resolution = 1, bool burst = true)
+            float spacing, float resolution = 1, bool burst = false)
         {
             if (burst)
                 return GetEvenlySpacedPointsBurst(points, normals, out bounds, boundingBoxes, spacing, resolution);
@@ -155,6 +155,7 @@ namespace Barmetler
                 var controlNetLength = Vector3.Distance(p[0], p[1]) + Vector3.Distance(p[1], p[2]) + Vector3.Distance(p[2], p[3]);
                 var estimatedCurveLength = Vector3.Distance(p[0], p[3]) + 0.5f * controlNetLength;
                 var divisions = Mathf.CeilToInt(estimatedCurveLength * resolution * 10);
+                if (divisions == 0) continue;
                 var startIndex = esp.Count;
                 var t = startIndex == 0 ? -1f / divisions : 0;
                 while (t <= 1)

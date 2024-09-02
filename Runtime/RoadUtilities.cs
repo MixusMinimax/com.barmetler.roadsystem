@@ -41,10 +41,14 @@ namespace Barmetler.RoadSystem
         {
             i = road.LoopIndex(i);
             if (i % 3 != 0) throw new ArgumentException("i must be divisible by 3");
-            if (i == 0)
-                forwards = road[1] - road[0];
-            else
-                forwards = road[i] - road[i - 1];
+            var iNext = i;
+            var iPrev = i;
+            while (iNext < road.NumPoints - 1 && Vector3.Distance(road[iNext], road[i]) < 0.01f) iNext++;
+            while (iPrev > 0 && Vector3.Distance(road[iPrev], road[iNext]) < 0.01f) iPrev--;
+            if (Vector3.Distance(road[iPrev], road[iNext]) < 0.01f)
+                forwards = road.transform.TransformDirection(Vector3.forward);
+
+            forwards = (road[iNext] - road[iPrev]).normalized;
             forwards = forwards.normalized;
             upwards = road.transform.TransformDirection(road.GetNormal(i / 3));
             forwards = road.transform.TransformDirection(forwards);

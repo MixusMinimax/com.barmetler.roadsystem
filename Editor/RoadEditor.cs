@@ -372,8 +372,9 @@ namespace Barmetler.RoadSystem
 						road.GetPointsInSegment(seg),
 						new List<Vector3> { road.GetNormal(seg), road.GetNormal(seg + 1) }, 1
 					).Select(e => e.ToWorldSpace(road.transform)).ToArray();
+					if (orientedPoints.Length == 0) continue;
 					var v = orientedPoints.Select(e => e.position).ToArray();
-					var d = HandleUtility.DistanceToPolyLine(v);
+					var d = v.Length == 1 ? HandleUtility.DistanceToCircle(v[0], 0) : HandleUtility.DistanceToPolyLine(v);
 					if (!(d < minDist)) continue;
 					minDist = d;
 					segmentIndex = seg;
@@ -655,7 +656,7 @@ namespace Barmetler.RoadSystem
 
 		#endregion Actions
 
-		private static Rect windowRect = new Rect(10000, 10000, 300, 300);
+		private static Rect _windowRect = new Rect(10000, 10000, 300, 300);
 
 		private void GUIDrawWindow()
 		{
@@ -667,14 +668,18 @@ namespace Barmetler.RoadSystem
 				case Tool.Scale:
 				case Tool.Rect:
 					break;
+				case Tool.View:
+				case Tool.Transform:
+				case Tool.Custom:
+				case Tool.None:
 				default: return;
 			}
 
-			windowRect.x = Mathf.Clamp(windowRect.x, 0, SceneView.lastActiveSceneView.camera.pixelWidth - windowRect.width);
-			windowRect.y = Mathf.Clamp(windowRect.y, 0, SceneView.lastActiveSceneView.camera.pixelHeight - windowRect.height);
+			_windowRect.x = Mathf.Clamp(_windowRect.x, 0, SceneView.lastActiveSceneView.camera.pixelWidth - _windowRect.width);
+			_windowRect.y = Mathf.Clamp(_windowRect.y, 0, SceneView.lastActiveSceneView.camera.pixelHeight - _windowRect.height);
 
 			Handles.BeginGUI();
-			windowRect = GUILayout.Window(0, windowRect, (int windowID) =>
+			_windowRect = GUILayout.Window(0, _windowRect, (int windowID) =>
 			{
 				if (selectedAnchorPoint != -1)
 				{
