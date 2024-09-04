@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -15,7 +16,8 @@ namespace Barmetler
             var p1 = Vector3.Lerp(b, c, t);
             return Vector3.Lerp(p0, p1, t);
         }
-        
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 EvaluateCubic(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t)
         {
             // Bernstein polynomials
@@ -75,8 +77,10 @@ namespace Barmetler
         public struct OrientedPoint
         {
             public Vector3 position; public Vector3 forward; public Vector3 normal;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public OrientedPoint(Vector3 p, Vector3 f, Vector3 n) { position = p; forward = f; normal = n; }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public OrientedPoint ToWorldSpace(Transform transform)
             {
                 var p = transform.TransformPoint(position);
@@ -85,6 +89,7 @@ namespace Barmetler
                 return new OrientedPoint(p, f, n);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public OrientedPoint ToLocalSpace(Transform transform)
             {
                 var p = transform.InverseTransformPoint(position);
@@ -94,6 +99,7 @@ namespace Barmetler
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static OrientedPoint[] GetEvenlySpacedPoints(
             IEnumerable<Vector3> points, IEnumerable<Vector3> normals, float spacing, float resolution = 1)
         {
@@ -140,7 +146,8 @@ namespace Barmetler
 
             private int _numPoints;
             
-            int LoopIndex(int i)
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private int LoopIndex(int i)
             {
                 return (i % _numPoints + _numPoints) % _numPoints;
             }
@@ -149,6 +156,7 @@ namespace Barmetler
             {
                 public Vector3 p0, p1, p2, p3;
                 
+                [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 public Segment(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3)
                 {
                     this.p0 = p0;
@@ -168,7 +176,8 @@ namespace Barmetler
                     };
             }
 
-            Segment GetPointsInSegment(int i)
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            private Segment GetPointsInSegment(int i)
             {
                 return new Segment(Points[i * 3], Points[i * 3 + 1], Points[i * 3 + 2], Points[LoopIndex(i * 3 + 3)]);
             }

@@ -463,7 +463,8 @@ namespace Barmetler.RoadSystem
 				UVOffset = settings.uvOffset,
 				ResultVertices = new NativeList<float3>(Allocator.TempJob),
 				ResultIndices = new UnsafeList<UnsafeList<int>>(submeshCount, Allocator.TempJob),
-				ResultUVs = new UnsafeList<UnsafeList<float2>>(8, Allocator.TempJob)
+				ResultUVs = new UnsafeList<UnsafeList<float2>>(8, Allocator.TempJob),
+				IntersectedIndices = new NativeHashMap<int2, int>(128, Allocator.TempJob)
 			};
 
 			foreach (var oldList in oldIndices)
@@ -523,6 +524,7 @@ namespace Barmetler.RoadSystem
 			job.ResultIndices.Dispose();
 			foreach (var i in job.ResultUVs) i.Dispose();
 			job.ResultUVs.Dispose();
+			job.IntersectedIndices.Dispose();
 			_disposeMarker.End();
 
 			newMesh.subMeshCount = submeshCount;
@@ -564,6 +566,11 @@ namespace Barmetler.RoadSystem
 			public NativeList<float3> ResultVertices;
 			public UnsafeList<UnsafeList<int>> ResultIndices;
 			public UnsafeList<UnsafeList<float2>> ResultUVs;
+			
+			/// <summary>
+			/// Cache for the indices of the vertices that were intersected by the clipping plane.
+			/// </summary>
+			public NativeHashMap<int2, int> IntersectedIndices;
 
 			public void Execute()
 			{
@@ -573,7 +580,7 @@ namespace Barmetler.RoadSystem
 					indexCounts[i] = Indices[i].Length;
 				var submeshCount = Indices.Length;
 
-				for (var z = 0; z < CompleteCopies; ++z)
+				for (var z = 0; z < CompleteCopies + 1; ++z)
 				{
 					var yOffset = z * MeshLength;
 
@@ -584,6 +591,13 @@ namespace Barmetler.RoadSystem
 						ResultVertices.AddGrowth(pos);
 					}
 
+					for (var channel = 0; channel < 8; ++channel)
+					for (var uv = 0; uv < UVs[channel].Length; ++uv)
+						ResultUVs.ElementAt(channel).Add(UVs[channel][uv] + UVOffset * z);
+					
+					// the last set of triangles is not copied for now, but added and potentially clipped
+					if (z == CompleteCopies) break;
+					
 					for (var submesh = 0; submesh < submeshCount; ++submesh)
 					{
 						for (var i = 0; i < indexCounts[submesh] / 3; ++i)
@@ -593,69 +607,23 @@ namespace Barmetler.RoadSystem
 							ResultIndices.ElementAt(submesh).AddGrowth(Indices[submesh][3 * i + 2] + z * vertexCount);
 						}
 					}
-
-					for (var channel = 0; channel < 8; ++channel)
-					for (var uv = 0; uv < UVs[channel].Length; ++uv)
-						ResultUVs.ElementAt(channel).Add(UVs[channel][uv] + UVOffset * z);
-				}
-
-				var remainder = BezierLength - CompleteCopies * MeshLength;
-				var remainderVertices = new NativeList<float3>(Vertices.Length, Allocator.Temp);
-				remainderVertices.CopyFrom(Vertices);
-
-				var remainderIndices = new UnsafeList<UnsafeList<int>>(Indices.Length, Allocator.Temp);
-				for (var i = 0; i < Indices.Length; ++i)
-				{
-					remainderIndices.Add(new UnsafeList<int>(Indices[i].Length, Allocator.Temp));
-					remainderIndices.ElementAt(i).CopyFrom(in Indices.ElementAt(i));
-				}
-
-				var remainderUVs = new UnsafeList<UnsafeList<float2>>(UVs.Length, Allocator.Temp);
-				for (var i = 0; i < UVs.Length; ++i)
-				{
-					remainderUVs.Add(new UnsafeList<float2>(UVs[i].Length, Allocator.Temp));
-					remainderUVs.ElementAt(i).CopyFrom(UVs[i]);
 				}
 
 				for (var i = 0; i < submeshCount; ++i)
 				{
-					ref var indices = ref remainderIndices.ElementAt(i);
-					ClipMeshZ(ref remainderVertices, ref indices, ref remainderUVs, remainder);
-					remainderIndices[i] = indices;
+					// ClipMeshZ(ref ResultVertices, ref indices, ref ResultUVs, BezierLength);
+					AddRemainderTriangles(
+						ref ResultVertices,
+						ref Indices.ElementAt(i),
+						ref ResultIndices.ElementAt(i),
+						ref UVs,
+						ref ResultUVs,
+						Vertices.Length * CompleteCopies,
+						BezierLength,
+						ref IntersectedIndices,
+						UVOffset * CompleteCopies
+					);
 				}
-
-				for (var i = 0; i < remainderVertices.Length; ++i)
-				{
-					remainderVertices[i] += float3(0, 0, MeshLength * CompleteCopies);
-				}
-
-				for (var i = 0; i < submeshCount; ++i)
-				{
-					var indices = remainderIndices[i];
-					for (var j = 0; j < indices.Length; ++j)
-						indices[j] += ResultVertices.Length;
-					remainderIndices[i] = indices;
-				}
-
-				for (var i = 0; i < UVs.Length; ++i)
-				{
-					var uvs = remainderUVs[i];
-					for (var j = 0; j < uvs.Length; ++j)
-						uvs[j] += UVOffset * CompleteCopies;
-					remainderUVs[i] = uvs;
-				}
-
-				ResultVertices.AddRange(remainderVertices.AsArray());
-				for (var i = 0; i < submeshCount; ++i)
-					ResultIndices.ElementAt(i).AddRange(remainderIndices[i]);
-				for (var i = 0; i < 8; ++i)
-					ResultUVs.ElementAt(i).AddRange(remainderUVs[i]);
-
-				remainderVertices.Dispose();
-				foreach (var i in remainderIndices) i.Dispose();
-				remainderIndices.Dispose();
-				foreach (var i in remainderUVs) i.Dispose();
-				remainderUVs.Dispose();
 
 				// bend along bezier
 				for (var v = 0; v < ResultVertices.Length; ++v)
@@ -703,47 +671,42 @@ namespace Barmetler.RoadSystem
 
 				indexCounts.Dispose();
 			}
-			
-			void ClipMeshZ(
+
+			/// <summary>
+			/// Add remaining triangles, and clip the ones at the end, potentially adding new vertices.
+			/// </summary>
+			private static void AddRemainderTriangles(
 				ref NativeList<float3> vertices,
-				ref UnsafeList<int> indices,
-				ref UnsafeList<UnsafeList<float2>> uvs,
-				float maxZ
+				ref UnsafeList<int> sourceIndices,
+				ref UnsafeList<int> resultIndices,
+				ref UnsafeList<UnsafeList<float2>> sourceUVs,
+				ref UnsafeList<UnsafeList<float2>> resultUVs,
+				int vertexStart,
+				float maxZ,
+				ref NativeHashMap<int2, int> intersectedIndices,
+				float2 uvOffset
 			)
 			{
-				var newVertices = new UnsafeList<float3>(vertices.Length, Allocator.Temp);
-				newVertices.CopyFrom(vertices.AsArray());
-				var newIndices = new UnsafeList<int>(indices.Length / 2, Allocator.Temp);
-				var newUVs = new UnsafeList<UnsafeList<float2>>(8, Allocator.Temp);
-				for (var i = 0; i < uvs.Length; ++i)
-				{
-					newUVs.Add(new UnsafeList<float2>(uvs[i].Length, Allocator.Temp));
-					newUVs.ElementAt(i).CopyFrom(uvs[i]);
-				}
-				
-				// var intersectedIndices = new Dictionary<(int a, int b), int>();
-				var intersectedIndices = new NativeHashMap<Vector2Int, int>(indices.Length, Allocator.Temp);
-				 
-				for (var tri = 0; tri + 3 <= indices.Length; tri += 3)
+				for (var tri = 0; tri + 3 <= sourceIndices.Length; tri += 3)
 				{
 					var count = 0;
 					for (var i = 0; i < 3; ++i)
-						if (vertices[indices[tri + i]].z <= maxZ)
+						if (vertices[vertexStart + sourceIndices[tri + i]].z <= maxZ)
 							++count;
 					switch (count)
 					{
 						case 3:
 						{
-							newIndices.AddGrowth(indices[tri]);
-							newIndices.AddGrowth(indices[tri + 1]);
-							newIndices.AddGrowth(indices[tri + 2]);
+							resultIndices.Add(vertexStart + sourceIndices[tri]);
+							resultIndices.Add(vertexStart + sourceIndices[tri + 1]);
+							resultIndices.Add(vertexStart + sourceIndices[tri + 2]);
 							break;
 						}
 						case 2:
 						{
-							var a = indices[tri];
-							var b = indices[tri + 1];
-							var c = indices[tri + 2];
+							var a = vertexStart + sourceIndices[tri];
+							var b = vertexStart + sourceIndices[tri + 1];
+							var c = vertexStart + sourceIndices[tri + 2];
 							// shuffle to make a and b inside
 							if (vertices[a].z > maxZ)
 							{
@@ -762,58 +725,63 @@ namespace Barmetler.RoadSystem
 
 							var ac = vertices[c] - vertices[a];
 							var bc = vertices[c] - vertices[b];
-							// if (vertices[c].z - vertices[a].z < 1e-6 || vertices[c].z - vertices[b].z < 1e-6) break;
 							var va = vertices[a] + ac * (maxZ - vertices[a].z) / (vertices[c].z - vertices[a].z);
 							var vb = vertices[b] + bc * (maxZ - vertices[b].z) / (vertices[c].z - vertices[b].z);
 
 							var insertedA = false;
 							int ia;
-							if (!intersectedIndices.ContainsKey(new Vector2Int(a, c)))
+							if (!intersectedIndices.ContainsKey(int2(a, c)))
 							{
-								newVertices.AddGrowth(va);
-								ia = newVertices.Length - 1;
-								intersectedIndices[new Vector2Int(a, c)] = ia;
+								vertices.Add(va);
+								ia = vertices.Length - 1;
+								intersectedIndices[int2(a, c)] = ia;
 								insertedA = true;
 							}
-							else ia = intersectedIndices[new Vector2Int(a, c)];
+							else ia = intersectedIndices[int2(a, c)];
 
 							var insertedB = false;
 							int ib;
-							if (!intersectedIndices.ContainsKey(new Vector2Int(b, c)))
+							if (!intersectedIndices.ContainsKey(int2(b, c)))
 							{
-								newVertices.AddGrowth(vb);
-								ib = newVertices.Length - 1;
-								intersectedIndices[new Vector2Int(b, c)] = ib;
+								vertices.AddGrowth(vb);
+								ib = vertices.Length - 1;
+								intersectedIndices[int2(b, c)] = ib;
 								insertedB = true;
 							}
-							else ib = intersectedIndices[new Vector2Int(b, c)];
+							else ib = intersectedIndices[int2(b, c)];
 							
 							var weightA = length(va - vertices[c]) / length(ac);
 							var weightB = length(vb - vertices[c]) / length(bc);
 							for (var channel = 0; channel < 8; ++channel)
 							{
-								if (newUVs[channel].Length == 0) continue;
+								if (sourceUVs.ElementAt(channel).Length == 0) continue;
 								if (insertedA)
-									newUVs.ElementAt(channel).Add(
-										weightA * uvs[channel][a] + (1 - weightA) * uvs[channel][c]);
+									resultUVs.ElementAt(channel).Add(
+										weightA * sourceUVs[channel][a - vertexStart] +
+										(1 - weightA) * sourceUVs[channel][c - vertexStart] +
+										uvOffset
+									);
 								if (insertedB)
-									newUVs.ElementAt(channel).Add(
-										weightB * uvs[channel][b] + (1 - weightB) * uvs[channel][c]);
+									resultUVs.ElementAt(channel).Add(
+										weightB * sourceUVs[channel][b - vertexStart] +
+										(1 - weightB) * sourceUVs[channel][c - vertexStart] +
+										uvOffset
+									);
 							}
 
-							newIndices.Add(a);
-							newIndices.Add(b);
-							newIndices.Add(ib);
-							newIndices.Add(a);
-							newIndices.Add(ib);
-							newIndices.Add(ia);
+							resultIndices.Add(a);
+							resultIndices.Add(b);
+							resultIndices.Add(ib);
+							resultIndices.Add(a);
+							resultIndices.Add(ib);
+							resultIndices.Add(ia);
 							break;
 						}
 						case 1:
 						{
-							var a = indices[tri];
-							var b = indices[tri + 1];
-							var c = indices[tri + 2];
+							var a = vertexStart + sourceIndices[tri];
+							var b = vertexStart + sourceIndices[tri + 1];
+							var c = vertexStart + sourceIndices[tri + 2];
 							// shuffle to make a and b inside
 							if (vertices[a].z <= maxZ)
 							{
@@ -838,55 +806,51 @@ namespace Barmetler.RoadSystem
 
 							var insertedA = false;
 							int ia;
-							if (!intersectedIndices.ContainsKey(new Vector2Int(c, a)))
+							if (!intersectedIndices.ContainsKey(int2(c, a)))
 							{
-								newVertices.Add(va);
-								ia = newVertices.Length - 1;
-								intersectedIndices[new Vector2Int(c, a)] = ia;
+								vertices.Add(va);
+								ia = vertices.Length - 1;
+								intersectedIndices[int2(c, a)] = ia;
 								insertedA = true;
 							}
-							else ia = intersectedIndices[new Vector2Int(c, a)];
+							else ia = intersectedIndices[int2(c, a)];
 
 							var insertedB = false;
 							int ib;
-							if (!intersectedIndices.ContainsKey(new Vector2Int(c, b)))
+							if (!intersectedIndices.ContainsKey(int2(c, b)))
 							{
-								newVertices.Add(vb);
-								ib = newVertices.Length - 1;
-								intersectedIndices[new Vector2Int(c, b)] = ib;
+								vertices.Add(vb);
+								ib = vertices.Length - 1;
+								intersectedIndices[int2(c, b)] = ib;
 								insertedB = true;
 							}
-							else ib = intersectedIndices[new Vector2Int(c, b)];
+							else ib = intersectedIndices[int2(c, b)];
 
 							var weightA = length(va - vertices[c]) / length(ca);
 							var weightB = length(vb - vertices[c]) / length(cb);
 							for (var channel = 0; channel < 8; ++channel)
 							{
-								if (newUVs[channel].Length == 0) continue;
+								if (sourceUVs.ElementAt(channel).Length == 0) continue;
 								if (insertedA)
-									newUVs.ElementAt(channel).Add(
-										weightA * uvs[channel][a] + (1 - weightA) * uvs[channel][c]);
+									resultUVs.ElementAt(channel).Add(
+										weightA * sourceUVs[channel][a - vertexStart] +
+										(1 - weightA) * sourceUVs[channel][c - vertexStart] +
+										uvOffset
+									);
 								if (insertedB)
-									newUVs.ElementAt(channel).Add(
-										weightB * uvs[channel][b] + (1 - weightB) * uvs[channel][c]);
+									resultUVs.ElementAt(channel).Add(
+										weightB * sourceUVs[channel][b - vertexStart] +
+										(1 - weightB) * sourceUVs[channel][c - vertexStart] +
+										uvOffset
+									);
 							}
 
-							newIndices.Add(ia);
-							newIndices.Add(ib);
-							newIndices.Add(c);
+							resultIndices.Add(ia);
+							resultIndices.Add(ib);
+							resultIndices.Add(c);
 							break;
 						}
 					}
-				}
-
-				vertices.CopyFrom(newVertices);
-				newVertices.Dispose();
-				indices.CopyFrom(newIndices);
-				newIndices.Dispose();
-				for (var i = 0; i < uvs.Length; ++i)
-				{
-					uvs.ElementAt(i).CopyFrom(newUVs[i]);
-					newUVs.ElementAt(i).Dispose();
 				}
 			}
 		}
