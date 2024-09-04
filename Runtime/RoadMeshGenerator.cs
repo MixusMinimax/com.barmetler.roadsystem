@@ -6,11 +6,14 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine.AI;
 using Util;
 
 using static Util.UnsafeListExt;
+using static Unity.Mathematics.math;
+using float3 = Unity.Mathematics.float3;
 
 namespace Barmetler.RoadSystem
 {
@@ -58,8 +61,14 @@ namespace Barmetler.RoadSystem
 		/// <summary>
 		/// Generate the mesh based on the curve described in the Road component.
 		/// </summary>
-		public void GenerateRoadMesh()
+		public void GenerateRoadMesh(bool burst = true)
 		{
+			if (burst)
+			{
+				GenerateRoadMeshBurst();
+				return;
+			}
+			
 			OnValidate();
 
 			if (!road) road = GetComponent<Road>();
@@ -436,28 +445,25 @@ namespace Barmetler.RoadSystem
 				})
 				.ToArray();
 
-			// var newVertices = new List<Vector3>();
-			// var newIndices = Enumerable.Range(0, submeshCount).Select(_ => new List<int>()).ToArray();
-			// var newUVs = Enumerable.Range(0, 8).Select(_ => new List<Vector2>()).ToArray();
-
 			var job = new GenerateRoadMeshJob
 			{
 				Points = new NativeArray<Bezier.OrientedPoint>(
 					points.Select(p => new Bezier.OrientedPoint(p.position, p.forward, p.normal)).ToArray(),
 					Allocator.TempJob),
-				Vertices = new NativeArray<Vector3>(oldVertices.ToArray(), Allocator.TempJob),
+				Vertices = new NativeArray<float3>(oldVertices.ToArray().Select(e => (float3)e).ToArray(),
+					Allocator.TempJob),
 				Indices = new UnsafeList<UnsafeList<int>>(
 					oldIndices.Length,
 					Allocator.TempJob),
-				UVs = new UnsafeList<UnsafeList<Vector2>>(oldUVs.Length, Allocator.TempJob),
+				UVs = new UnsafeList<UnsafeList<float2>>(oldUVs.Length, Allocator.TempJob),
 				CompleteCopies = completeCopies,
 				MeshLength = meshLength,
 				BezierLength = bezierLength,
 				StepSize = stepSize,
 				UVOffset = settings.uvOffset,
-				ResultVertices = new NativeList<Vector3>(Allocator.TempJob),
+				ResultVertices = new NativeList<float3>(Allocator.TempJob),
 				ResultIndices = new UnsafeList<UnsafeList<int>>(submeshCount, Allocator.TempJob),
-				ResultUVs = new UnsafeList<UnsafeList<Vector2>>(8, Allocator.TempJob)
+				ResultUVs = new UnsafeList<UnsafeList<float2>>(8, Allocator.TempJob)
 			};
 
 			foreach (var oldList in oldIndices)
@@ -474,20 +480,35 @@ namespace Barmetler.RoadSystem
 			foreach (var oldList in oldUVs)
 			{
 				var arr = oldList.ToArray();
-				var l = new UnsafeList<Vector2>(oldList.Count, Allocator.TempJob);
+				var l = new UnsafeList<float2>(oldList.Count, Allocator.TempJob);
 				foreach (var element in arr)
 					l.Add(element);
 				job.UVs.Add(l);
 				
-				job.ResultUVs.Add(new UnsafeList<Vector2>(oldList.Count, Allocator.TempJob));
+				job.ResultUVs.Add(new UnsafeList<float2>(oldList.Count, Allocator.TempJob));
 			}
 			
 			job.Run();
 
 			_extractResultsMarker.Begin();
+			// extract results with no allocations
 			var newVertices = job.ResultVertices.AsArray().ToArray();
-			var newIndices = job.ResultIndices.AsEnumerable().Select(e => e.AsEnumerable().ToArray()).ToArray();
-			var newUVs = job.ResultUVs.AsEnumerable().Select(e => e.AsEnumerable().ToArray()).ToArray();
+			var newIndices = new int[job.ResultIndices.length][];
+			for (var i = 0; i < newIndices.Length; ++i)
+			{
+				ref var x = ref job.ResultIndices.ElementAt(i);
+				var y = newIndices[i] = new int[x.length];
+				for (var j = 0; j < x.length; ++j)
+					y[j] = x[j];
+			}
+			var newUVs = new Vector2[8][];
+			for (var i = 0; i < 8; ++i)
+			{
+				ref var x = ref job.ResultUVs.ElementAt(i);
+				var y = newUVs[i] = new Vector2[x.length];
+				for (var j = 0; j < x.length; ++j)
+					y[j] = x[j];
+			}
 			_extractResultsMarker.End();
 			
 			_disposeMarker.Begin();
@@ -506,13 +527,13 @@ namespace Barmetler.RoadSystem
 
 			newMesh.subMeshCount = submeshCount;
 			using (_setVerticesMarker.Auto())
-				newMesh.SetVertices(newVertices);
+				newMesh.SetVertices(newVertices.Select(e => (Vector3)e).ToList());
 			using (_setIndicesMarker.Auto())
 				for (var i = 0; i < submeshCount; ++i)
 					newMesh.SetIndices(newIndices[i], oldMesh.GetTopology(i), i);
 			using (_setUVsMarker.Auto())
 				for (var i = 0; i < 8; ++i)
-					newMesh.SetUVs(i, newUVs.ElementAt(i));
+					newMesh.SetUVs(i, newUVs.ElementAt(i).Select(e => (Vector2)e).ToList());
 			using (_recalculateNormalsMarker.Auto())
 				newMesh.RecalculateNormals();
 			using (_recalculateTangentsMarker.Auto())
@@ -531,18 +552,18 @@ namespace Barmetler.RoadSystem
 		private struct GenerateRoadMeshJob : IJob
 		{
 			[ReadOnly] public NativeArray<Bezier.OrientedPoint> Points;
-			[ReadOnly] public NativeArray<Vector3> Vertices;
+			[ReadOnly] public NativeArray<float3> Vertices;
 			[ReadOnly] public UnsafeList<UnsafeList<int>> Indices;
-			[ReadOnly] public UnsafeList<UnsafeList<Vector2>> UVs;
+			[ReadOnly] public UnsafeList<UnsafeList<float2>> UVs;
 			[ReadOnly] public int CompleteCopies;
 			[ReadOnly] public float MeshLength;
 			[ReadOnly] public float BezierLength;
 			[ReadOnly] public float StepSize;
-			[ReadOnly] public Vector2 UVOffset;
+			[ReadOnly] public float2 UVOffset;
 			
-			public NativeList<Vector3> ResultVertices;
+			public NativeList<float3> ResultVertices;
 			public UnsafeList<UnsafeList<int>> ResultIndices;
-			public UnsafeList<UnsafeList<Vector2>> ResultUVs;
+			public UnsafeList<UnsafeList<float2>> ResultUVs;
 
 			public void Execute()
 			{
@@ -558,9 +579,7 @@ namespace Barmetler.RoadSystem
 
 					for (var v = 0; v < vertexCount; ++v)
 					{
-						var pos = Vertices[v] + Vector3.forward * yOffset;
-						// transform from blender to unity coordinate system
-						pos = new Vector3(pos.x, pos.y, pos.z);
+						var pos = Vertices[v] + float3(0,0, yOffset);
 
 						ResultVertices.AddGrowth(pos);
 					}
@@ -569,7 +588,6 @@ namespace Barmetler.RoadSystem
 					{
 						for (var i = 0; i < indexCounts[submesh] / 3; ++i)
 						{
-							// transform from blender to unity coordinate system
 							ResultIndices.ElementAt(submesh).AddGrowth(Indices[submesh][3 * i] + z * vertexCount);
 							ResultIndices.ElementAt(submesh).AddGrowth(Indices[submesh][3 * i + 1] + z * vertexCount);
 							ResultIndices.ElementAt(submesh).AddGrowth(Indices[submesh][3 * i + 2] + z * vertexCount);
@@ -578,11 +596,11 @@ namespace Barmetler.RoadSystem
 
 					for (var channel = 0; channel < 8; ++channel)
 					for (var uv = 0; uv < UVs[channel].Length; ++uv)
-						ResultUVs.ElementAt(channel).Add(UVs[channel][uv] + Vector2.up * UVOffset * z);
+						ResultUVs.ElementAt(channel).Add(UVs[channel][uv] + UVOffset * z);
 				}
 
 				var remainder = BezierLength - CompleteCopies * MeshLength;
-				var remainderVertices = new NativeList<Vector3>(Vertices.Length, Allocator.Temp);
+				var remainderVertices = new NativeList<float3>(Vertices.Length, Allocator.Temp);
 				remainderVertices.CopyFrom(Vertices);
 
 				var remainderIndices = new UnsafeList<UnsafeList<int>>(Indices.Length, Allocator.Temp);
@@ -592,10 +610,10 @@ namespace Barmetler.RoadSystem
 					remainderIndices.ElementAt(i).CopyFrom(in Indices.ElementAt(i));
 				}
 
-				var remainderUVs = new UnsafeList<UnsafeList<Vector2>>(UVs.Length, Allocator.Temp);
+				var remainderUVs = new UnsafeList<UnsafeList<float2>>(UVs.Length, Allocator.Temp);
 				for (var i = 0; i < UVs.Length; ++i)
 				{
-					remainderUVs.Add(new UnsafeList<Vector2>(UVs[i].Length, Allocator.Temp));
+					remainderUVs.Add(new UnsafeList<float2>(UVs[i].Length, Allocator.Temp));
 					remainderUVs.ElementAt(i).CopyFrom(UVs[i]);
 				}
 
@@ -608,7 +626,7 @@ namespace Barmetler.RoadSystem
 
 				for (var i = 0; i < remainderVertices.Length; ++i)
 				{
-					remainderVertices[i] += Vector3.forward * (MeshLength * CompleteCopies);
+					remainderVertices[i] += float3(0, 0, MeshLength * CompleteCopies);
 				}
 
 				for (var i = 0; i < submeshCount; ++i)
@@ -687,19 +705,19 @@ namespace Barmetler.RoadSystem
 			}
 			
 			void ClipMeshZ(
-				ref NativeList<Vector3> vertices,
+				ref NativeList<float3> vertices,
 				ref UnsafeList<int> indices,
-				ref UnsafeList<UnsafeList<Vector2>> uvs,
+				ref UnsafeList<UnsafeList<float2>> uvs,
 				float maxZ
 			)
 			{
-				var newVertices = new UnsafeList<Vector3>(vertices.Length, Allocator.Temp);
+				var newVertices = new UnsafeList<float3>(vertices.Length, Allocator.Temp);
 				newVertices.CopyFrom(vertices.AsArray());
 				var newIndices = new UnsafeList<int>(indices.Length / 2, Allocator.Temp);
-				var newUVs = new UnsafeList<UnsafeList<Vector2>>(8, Allocator.Temp);
+				var newUVs = new UnsafeList<UnsafeList<float2>>(8, Allocator.Temp);
 				for (var i = 0; i < uvs.Length; ++i)
 				{
-					newUVs.Add(new UnsafeList<Vector2>(uvs[i].Length, Allocator.Temp));
+					newUVs.Add(new UnsafeList<float2>(uvs[i].Length, Allocator.Temp));
 					newUVs.ElementAt(i).CopyFrom(uvs[i]);
 				}
 				
@@ -769,28 +787,26 @@ namespace Barmetler.RoadSystem
 								insertedB = true;
 							}
 							else ib = intersectedIndices[new Vector2Int(b, c)];
-
-							var weightA = (va - vertices[c]).magnitude / ac.magnitude;
-							var weightB = (vb - vertices[c]).magnitude / bc.magnitude;
+							
+							var weightA = length(va - vertices[c]) / length(ac);
+							var weightB = length(vb - vertices[c]) / length(bc);
 							for (var channel = 0; channel < 8; ++channel)
 							{
-								if (newUVs[channel].Length > 0)
-								{
-									if (insertedA)
-										newUVs.ElementAt(channel).Add(
-											weightA * uvs[channel][a] + (1 - weightA) * uvs[channel][c]);
-									if (insertedB)
-										newUVs.ElementAt(channel).Add(
-											weightB * uvs[channel][b] + (1 - weightB) * uvs[channel][c]);
-								}
+								if (newUVs[channel].Length == 0) continue;
+								if (insertedA)
+									newUVs.ElementAt(channel).Add(
+										weightA * uvs[channel][a] + (1 - weightA) * uvs[channel][c]);
+								if (insertedB)
+									newUVs.ElementAt(channel).Add(
+										weightB * uvs[channel][b] + (1 - weightB) * uvs[channel][c]);
 							}
 
-							newIndices.AddGrowth(a);
-							newIndices.AddGrowth(b);
-							newIndices.AddGrowth(ib);
-							newIndices.AddGrowth(a);
-							newIndices.AddGrowth(ib);
-							newIndices.AddGrowth(ia);
+							newIndices.Add(a);
+							newIndices.Add(b);
+							newIndices.Add(ib);
+							newIndices.Add(a);
+							newIndices.Add(ib);
+							newIndices.Add(ia);
 							break;
 						}
 						case 1:
@@ -824,7 +840,7 @@ namespace Barmetler.RoadSystem
 							int ia;
 							if (!intersectedIndices.ContainsKey(new Vector2Int(c, a)))
 							{
-								newVertices.AddGrowth(va);
+								newVertices.Add(va);
 								ia = newVertices.Length - 1;
 								intersectedIndices[new Vector2Int(c, a)] = ia;
 								insertedA = true;
@@ -835,18 +851,18 @@ namespace Barmetler.RoadSystem
 							int ib;
 							if (!intersectedIndices.ContainsKey(new Vector2Int(c, b)))
 							{
-								newVertices.AddGrowth(vb);
+								newVertices.Add(vb);
 								ib = newVertices.Length - 1;
 								intersectedIndices[new Vector2Int(c, b)] = ib;
 								insertedB = true;
 							}
 							else ib = intersectedIndices[new Vector2Int(c, b)];
 
-							var weightA = (va - vertices[c]).magnitude / ca.magnitude;
-							var weightB = (vb - vertices[c]).magnitude / cb.magnitude;
+							var weightA = length(va - vertices[c]) / length(ca);
+							var weightB = length(vb - vertices[c]) / length(cb);
 							for (var channel = 0; channel < 8; ++channel)
 							{
-								if (newUVs[channel].Length <= 0) continue;
+								if (newUVs[channel].Length == 0) continue;
 								if (insertedA)
 									newUVs.ElementAt(channel).Add(
 										weightA * uvs[channel][a] + (1 - weightA) * uvs[channel][c]);
@@ -855,9 +871,9 @@ namespace Barmetler.RoadSystem
 										weightB * uvs[channel][b] + (1 - weightB) * uvs[channel][c]);
 							}
 
-							newIndices.AddGrowth(ia);
-							newIndices.AddGrowth(ib);
-							newIndices.AddGrowth(c);
+							newIndices.Add(ia);
+							newIndices.Add(ib);
+							newIndices.Add(c);
 							break;
 						}
 					}

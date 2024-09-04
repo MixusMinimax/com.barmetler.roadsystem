@@ -4,7 +4,8 @@
   "displayName": "MB Road System",
   "dependencies": {
     "com.unity.burst": "1.4.5",
-    "com.unity.collections": "0.15.0-preview.21"
+    "com.unity.collections": "0.15.0-preview.21",
+    "com.unity.mathematics": "1.2.6"
   },
   "description": "Create RoadSystems using Bezier Curves that support Path Finding",
   "hideInEditor": false,
