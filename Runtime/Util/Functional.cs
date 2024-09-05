@@ -1,4 +1,4 @@
-﻿namespace Util
+﻿namespace Barmetler.Util
 {
     public static class Functional
     {

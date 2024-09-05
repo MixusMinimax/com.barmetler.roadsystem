@@ -1,9 +1,11 @@
-using System.Linq;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Barmetler
@@ -154,10 +156,10 @@ namespace Barmetler
 
             private struct Segment
             {
-                public Vector3 p0, p1, p2, p3;
+                public float3 p0, p1, p2, p3;
                 
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
-                public Segment(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3)
+                public Segment(float3 p0, float3 p1, float3 p2, float3 p3)
                 {
                     this.p0 = p0;
                     this.p1 = p1;
@@ -165,14 +167,14 @@ namespace Barmetler
                     this.p3 = p3;
                 }
 
-                public Vector3 this[int i] =>
+                public float3 this[int i] =>
                     i switch
                     {
                         0 => p0,
                         1 => p1,
                         2 => p2,
                         3 => p3,
-                        _ => throw new System.ArgumentOutOfRangeException()
+                        _ => throw new ArgumentOutOfRangeException()
                     };
             }
 
@@ -187,7 +189,7 @@ namespace Barmetler
                 _numPoints = Points.Length;
                 var numSegments = _numPoints / 3;
                 if (Normals.Length < numSegments + 1)
-                    throw new System.ArgumentException("not enough normals!");
+                    throw new ArgumentException("not enough normals!");
                 
                 Bounds.min = Vector3.positiveInfinity;
                 Bounds.max = Vector3.negativeInfinity;
@@ -222,61 +224,64 @@ namespace Barmetler
                                            Vector3.Distance(p[2], p[3]);
                     var estimatedCurveLength = Vector3.Distance(p[0], p[3]) + 0.5f * controlNetLength;
                     var divisions = Mathf.CeilToInt(estimatedCurveLength * Resolution * 10);
-                    var startIndex = Result.Length;
-                    var t = startIndex == 0 ? -1f / divisions : 0;
-                    while (t <= 1)
+                    if (divisions > 0)
                     {
-                        t += 1f / divisions;
-                        var pointOnCurve = EvaluateCubic(p[0], p[1], p[2], p[3], t);
-                        if (t > -0.5f / divisions)
-                            segmentLength += Vector3.Distance(pointOnCurve, previousPointOnCurve);
-                        previousPointOnCurve = pointOnCurve;
-                        forwardOnCurve = DeriveCubic(p[0], p[1], p[2], p[3], Mathf.Clamp01(t)).normalized;
-                        normalOnCurve = Vector3.Cross(forwardOnCurve, Vector3.Cross(normalOnCurve, forwardOnCurve))
-                            .normalized;
-                        dstSinceLastEvenPoint += Vector3.Distance(previousPoint, pointOnCurve);
-
-                        while (dstSinceLastEvenPoint >= Spacing)
+                        var startIndex = Result.Length;
+                        var t = startIndex == 0 ? -1f / divisions : 0;
+                        while (t <= 1)
                         {
-                            var overshootDst = dstSinceLastEvenPoint - Spacing;
-                            var newEvenlySpacedPoint =
-                                pointOnCurve + (previousPoint - pointOnCurve).normalized * overshootDst;
+                            t += 1f / divisions;
+                            var pointOnCurve = EvaluateCubic(p[0], p[1], p[2], p[3], t);
+                            if (t > -0.5f / divisions)
+                                segmentLength += Vector3.Distance(pointOnCurve, previousPointOnCurve);
+                            previousPointOnCurve = pointOnCurve;
+                            forwardOnCurve = DeriveCubic(p[0], p[1], p[2], p[3], Mathf.Clamp01(t)).normalized;
+                            normalOnCurve = Vector3.Cross(forwardOnCurve, Vector3.Cross(normalOnCurve, forwardOnCurve))
+                                .normalized;
+                            dstSinceLastEvenPoint += Vector3.Distance(previousPoint, pointOnCurve);
 
-                            // Update bounding box
-                            segmentBounds.Encapsulate(newEvenlySpacedPoint);
+                            while (dstSinceLastEvenPoint >= Spacing)
+                            {
+                                var overshootDst = dstSinceLastEvenPoint - Spacing;
+                                var newEvenlySpacedPoint =
+                                    pointOnCurve + (previousPoint - pointOnCurve).normalized * overshootDst;
 
-                            Result.Add(new OrientedPoint(newEvenlySpacedPoint, forwardOnCurve, normalOnCurve));
+                                // Update bounding box
+                                segmentBounds.Encapsulate(newEvenlySpacedPoint);
 
-                            dstSinceLastEvenPoint = overshootDst;
-                            previousPoint = newEvenlySpacedPoint;
+                                Result.Add(new OrientedPoint(newEvenlySpacedPoint, forwardOnCurve, normalOnCurve));
+
+                                dstSinceLastEvenPoint = overshootDst;
+                                previousPoint = newEvenlySpacedPoint;
+                            }
+
+                            previousPoint = pointOnCurve;
                         }
 
-                        previousPoint = pointOnCurve;
-                    }
+                        var endIndexExclusive = Result.Length;
 
-                    var endIndexExclusive = Result.Length;
-
-                    if (startIndex != endIndexExclusive)
-                    {
-                        segmentLength += Vector3.Distance(previousPointOnCurve, p[3]);
-                        LineLength += segmentLength;
-
-                        forwardOnCurve = DeriveCubic(p[0], p[1], p[2], p[3], 1).normalized;
-                        normalOnCurve = Vector3.Cross(forwardOnCurve, Vector3.Cross(normalOnCurve, forwardOnCurve))
-                            .normalized;
-                        var angleError = Vector3.SignedAngle(normalOnCurve, Normals[segment + 1], forwardOnCurve);
-
-                        // Iterate over evenly spaced points in this segment, and gradually correct angle error
-                        var tStep = Spacing / segmentLength;
-                        var tStart = Vector3.Distance(Result[startIndex].position, p[0]) / segmentLength;
-                        for (var i = startIndex; i < endIndexExclusive; ++i)
+                        if (startIndex != endIndexExclusive)
                         {
-                            var t_ = (i - startIndex) * tStep + tStart;
-                            // TODO: make weight non-linear, depending on handle lengths
-                            var correction = t_ * angleError;
-                            var element = Result[i];
-                            element.normal = Quaternion.AngleAxis(correction, element.forward) * element.normal;
-                            Result[i] = element;
+                            segmentLength += Vector3.Distance(previousPointOnCurve, p[3]);
+                            LineLength += segmentLength;
+
+                            forwardOnCurve = DeriveCubic(p[0], p[1], p[2], p[3], 1).normalized;
+                            normalOnCurve = Vector3.Cross(forwardOnCurve, Vector3.Cross(normalOnCurve, forwardOnCurve))
+                                .normalized;
+                            var angleError = Vector3.SignedAngle(normalOnCurve, Normals[segment + 1], forwardOnCurve);
+
+                            // Iterate over evenly spaced points in this segment, and gradually correct angle error
+                            var tStep = Spacing / segmentLength;
+                            var tStart = Vector3.Distance(Result[startIndex].position, p[0]) / segmentLength;
+                            for (var i = startIndex; i < endIndexExclusive; ++i)
+                            {
+                                var t_ = (i - startIndex) * tStep + tStart;
+                                // TODO: make weight non-linear, depending on handle lengths
+                                var correction = t_ * angleError;
+                                var element = Result[i];
+                                element.normal = Quaternion.AngleAxis(correction, element.forward) * element.normal;
+                                Result[i] = element;
+                            }
                         }
                     }
 

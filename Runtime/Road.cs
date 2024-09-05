@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 using Unity.Profiling;
-
-using static Util.Functional;
+using UnityEngine;
+using static Barmetler.Util.Functional;
 
 namespace Barmetler.RoadSystem
 {
@@ -314,7 +313,7 @@ namespace Barmetler.RoadSystem
 				FixNormal(i);
 		}
 
-		[System.Obsolete("Use MoveNormal instead!")]
+		[Obsolete("Use MoveNormal instead!")]
 		public void MoveAngle(int i, float angle)
 		{
 			if ((i == 0 && start != null) || (i == normals.Count - 1 && end != null)) return;
@@ -324,7 +323,7 @@ namespace Barmetler.RoadSystem
 			OnCurveChanged();
 		}
 
-		[System.Obsolete("Use GetNormal instead!")]
+		[Obsolete("Use GetNormal instead!")]
 		public float GetAngle(int i)
 		{
 			var forward = i == 0 ? points[1] - points[0] : points[3 * i] - points[3 * i - 1];

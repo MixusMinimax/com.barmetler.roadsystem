@@ -1,6 +1,5 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
-using UnityEngine;
 using System.Linq;
 using Unity.Burst;
 using Unity.Collections;
@@ -8,19 +7,18 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
-using UnityEngine.AI;
+using UnityEngine;
 using Util;
-
-using static Util.UnsafeListExt;
 using static Unity.Mathematics.math;
 using float3 = Unity.Mathematics.float3;
+using static Barmetler.Util.Functional;
 
 namespace Barmetler.RoadSystem
 {
 	[RequireComponent(typeof(Road)), RequireComponent(typeof(MeshFilter))]
 	public class RoadMeshGenerator : MonoBehaviour
 	{
-		[System.Serializable]
+		[Serializable]
 		public class RoadMeshSettings
 		{
 			[Tooltip("Orientation of the Source Mesh")]
@@ -426,8 +424,10 @@ namespace Barmetler.RoadSystem
 			}
 
 			// The last point is repositioned to the end of the bezier
-			var bezierLength = stepSize * (points.Length - 2) +
-			                   (points[points.Length - 2].position - points[points.Length - 1].position).magnitude;
+			var bezierLength = points.Length > 1
+				? stepSize * (points.Length - 2) +
+				  (points[points.Length - 2].position - points[points.Length - 1].position).magnitude
+				: 0;
 
 			var completeCopies = Mathf.FloorToInt(bezierLength / meshLength);
 
@@ -542,10 +542,10 @@ namespace Barmetler.RoadSystem
 				newMesh.RecalculateTangents();
 			using (_recalculateBoundsMarker.Auto())
 				newMesh.RecalculateBounds();
-
-			mf.mesh = newMesh;
-			if (GetComponent<MeshCollider>() != null)
-				GetComponent<MeshCollider>().sharedMesh = newMesh;
+			
+			mf.sharedMesh = newMesh;
+			if (Let(GetComponent<MeshCollider>(), out var coll))
+				coll.sharedMesh = mf.sharedMesh;
 
 			Valid = true;
 		}
@@ -626,7 +626,7 @@ namespace Barmetler.RoadSystem
 				}
 
 				// bend along bezier
-				for (var v = 0; v < ResultVertices.Length; ++v)
+				for (var v = 0; v < ResultVertices.Length && Points.Length > 1; ++v)
 				{
 					var pos = ResultVertices[v];
 
