@@ -386,9 +386,6 @@ namespace Barmetler.RoadSystem
 				{
 					var hoverPos = ClosestPointToPolyLine(segment, out var polyIndex, out var polyT);
 
-					Handles.color = Color.white;
-					Handles.SphereHandleCap(0, hoverPos, Quaternion.identity, 1, EventType.Repaint);
-
 					var s = road
 						.GetPointsInSegment(segmentIndex)
 						.Select(t => road.transform.TransformPoint(t))
@@ -399,11 +396,24 @@ namespace Barmetler.RoadSystem
 						segmentNormals[polyIndex],
 						segmentNormals[Mathf.Min(polyIndex + 1, segmentNormals.Length - 1)], polyT
 					).normalized;
-
+					
+					var tooClose = t < 1e-6 || t > 1 - 1e-6;
+					
+					Handles.color = tooClose ? Color.grey : Color.white;
+					Handles.SphereHandleCap(0, hoverPos, Quaternion.identity,
+						0.2f * HandleUtility.GetHandleSize(hoverPos), EventType.Repaint);
 					Handles.color = Color.red;
-					Handles.DrawLine(hoverPos, hoverPos + normal * 2);
-
-					if (e.type == EventType.MouseDown && e.button == 0)
+					Handles.DrawLine(hoverPos, hoverPos + normal * (0.5f * HandleUtility.GetHandleSize(hoverPos)));
+					if (tooClose)
+						Handles.Label(hoverPos, "Too Close!", new GUIStyle
+						{
+							normal =
+							{
+								textColor = Color.red,
+								background = Texture2D.whiteTexture,
+							}
+						});
+					else if (e.type == EventType.MouseDown && e.button == 0)
 					{
 						Undo.RecordObject(road, "Insert Segment");
 						road.InsertSegment(segmentIndex, t, normal);
