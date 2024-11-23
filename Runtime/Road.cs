@@ -96,7 +96,7 @@ namespace Barmetler.RoadSystem
 			if (angles.Count == NumSegments + 1)
 			{
 				normals.Clear();
-				for (int i = 0; i < NumSegments + 1; ++i)
+				for (var i = 0; i < NumSegments + 1; ++i)
 				{
 					var forward = i == 0 ? (this[1] - this[0]).normalized : (this[i] - this[i - 1]).normalized;
 					normals.Add(Bezier.NormalFromAngle(forward, angles[i]));
@@ -138,10 +138,10 @@ namespace Barmetler.RoadSystem
 			{
 				if (start != null)
 				{
-					Vector3 a = this[0];
-					Vector3 b = this[1];
-					Vector3 n = normals[0];
-					float startLength = (this[1] - this[0]).magnitude;
+					var a = this[0];
+					var b = this[1];
+					var n = normals[0];
+					var startLength = (this[1] - this[0]).magnitude;
 					this[0] = transform.InverseTransformPoint(start.transform.position);
 					this[1] = this[0] + transform.InverseTransformDirection(start.transform.forward) * startLength;
 					normals[0] = transform.InverseTransformDirection(start.transform.up);
@@ -150,10 +150,10 @@ namespace Barmetler.RoadSystem
 				}
 				if (end != null)
 				{
-					Vector3 a = this[-1];
-					Vector3 b = this[-2];
-					Vector3 n = normals[normals.Count - 1];
-					float endLength = (this[-2] - this[-1]).magnitude;
+					var a = this[-1];
+					var b = this[-2];
+					var n = normals[normals.Count - 1];
+					var endLength = (this[-2] - this[-1]).magnitude;
 					this[-1] = transform.InverseTransformPoint(end.transform.position);
 					this[-2] = this[-1] + transform.InverseTransformDirection(end.transform.forward) * endLength;
 					normals[normals.Count - 1] = transform.InverseTransformDirection(end.transform.up);
@@ -255,7 +255,7 @@ namespace Barmetler.RoadSystem
 
 		public void MovePoint(int i, Vector3 pos)
 		{
-			Vector3 oldPos = this[i];
+			var oldPos = this[i];
 
 			if (i % 3 == 0)
 			{
@@ -271,23 +271,23 @@ namespace Barmetler.RoadSystem
 			{
 				if (autoSetControlPoints) return;
 
-				bool nextIsAnchor = (i + 1) % 3 == 0;
-				int correspondingIndex = nextIsAnchor ? i + 2 : i - 2;
-				Vector3 anchor = this[nextIsAnchor ? i + 1 : i - 1];
+				var nextIsAnchor = (i + 1) % 3 == 0;
+				var correspondingIndex = nextIsAnchor ? i + 2 : i - 2;
+				var anchor = this[nextIsAnchor ? i + 1 : i - 1];
 
 				if ((start != null && i == 1) || (end != null && i == NumPoints - 2))
 				{
-					bool isStart = i == 1;
-					Vector3 forward = transform.InverseTransformDirection((isStart ? start : end).transform.forward);
+					var isStart = i == 1;
+					var forward = transform.InverseTransformDirection((isStart ? start : end).transform.forward);
 					this[i] = this[isStart ? 0 : (NumPoints - 1)] +
 						Mathf.Max(1e-1f, Vector3.Dot(pos - this[isStart ? 0 : (NumPoints - 1)], forward))
 						* forward;
 				}
 				else if (i > 1 && i < NumPoints - 2)
 				{
-					float correspondingDistance = (this[correspondingIndex] - anchor).magnitude;
+					var correspondingDistance = (this[correspondingIndex] - anchor).magnitude;
 					this[i] = pos;
-					Vector3 direction = (pos - anchor).normalized;
+					var direction = (pos - anchor).normalized;
 					this[correspondingIndex] = anchor - direction * correspondingDistance;
 				}
 				else
@@ -303,13 +303,13 @@ namespace Barmetler.RoadSystem
 
 		void FixNormal(int index)
 		{
-			Vector3 forward = index == 0 ? (this[1] - this[0]).normalized : (this[index * 3] - this[index * 3 - 1]).normalized;
+			var forward = index == 0 ? (this[1] - this[0]).normalized : (this[index * 3] - this[index * 3 - 1]).normalized;
 			normals[index] = Vector3.ProjectOnPlane(normals[index], forward).normalized;
 		}
 
 		void FixNormals()
 		{
-			for (int i = 0; i <= NumSegments; ++i)
+			for (var i = 0; i <= NumSegments; ++i)
 				FixNormal(i);
 		}
 
@@ -355,7 +355,7 @@ namespace Barmetler.RoadSystem
 
 		void AutoSetAllAffectedControlPoints(int updatedAnchorIndex)
 		{
-			for (int i = updatedAnchorIndex - 3; i <= updatedAnchorIndex + 3; i += 3)
+			for (var i = updatedAnchorIndex - 3; i <= updatedAnchorIndex + 3; i += 3)
 			{
 				if (i >= 0 && i < NumPoints)
 					AutoSetAnchorControlPoints(i);
@@ -368,7 +368,7 @@ namespace Barmetler.RoadSystem
 
 		public void AutoSetAllControlPoints()
 		{
-			for (int i = 0; i < NumPoints; i += 3)
+			for (var i = 0; i < NumPoints; i += 3)
 			{
 				AutoSetAnchorControlPoints(i);
 			}
@@ -380,27 +380,27 @@ namespace Barmetler.RoadSystem
 
 		void AutoSetAnchorControlPoints(int anchorIndex)
 		{
-			Vector3 anchorPos = this[anchorIndex];
-			Vector3 direction = Vector3.zero;
-			float[] neighborDistances = new float[2];
+			var anchorPos = this[anchorIndex];
+			var direction = Vector3.zero;
+			var neighborDistances = new float[2];
 			if (anchorIndex - 3 >= 0)
 			{
-				Vector3 offset = this[anchorIndex - 3] - anchorPos;
+				var offset = this[anchorIndex - 3] - anchorPos;
 				direction += offset.normalized;
 				neighborDistances[0] = offset.magnitude;
 			}
 			if (anchorIndex + 3 <= NumPoints - 1)
 			{
-				Vector3 offset = this[anchorIndex + 3] - anchorPos;
+				var offset = this[anchorIndex + 3] - anchorPos;
 				direction -= offset.normalized;
 				neighborDistances[1] = -offset.magnitude;
 			}
 
 			direction.Normalize();
 
-			for (int i = 0; i < 2; ++i)
+			for (var i = 0; i < 2; ++i)
 			{
-				int controlIndex = anchorIndex + i * 2 - 1;
+				var controlIndex = anchorIndex + i * 2 - 1;
 				if (controlIndex >= 0 && controlIndex < NumPoints)
 				{
 					this[controlIndex] = anchorPos + direction * neighborDistances[i] * 0.5f;
@@ -440,13 +440,13 @@ namespace Barmetler.RoadSystem
 
 		void CalculateEvenlySpacedPoints(float spacing, float resolution = 1, bool calculateBoundingBoxes = false)
 		{
-			EvenlySpacedPointsContext context = new EvenlySpacedPointsContext(spacing, resolution);
+			var context = new EvenlySpacedPointsContext(spacing, resolution);
 			if (evenlySpacedPointsCache.IsValid(context) && !calculateBoundingBoxes) return;
 
 			Bezier.OrientedPoint[] result;
 
 			var angles = new List<float>();
-			for (int i = 0; i < normals.Count; ++i)
+			for (var i = 0; i < normals.Count; ++i)
 			{
 				var forward = i == 0 ? points[1] - points[0] : points[i * 3] - points[i * 3 - 1];
 				angles.Add(Bezier.AngleFromNormal(forward, normals[i]));
@@ -474,11 +474,11 @@ namespace Barmetler.RoadSystem
 			if (lengthCache.IsValid(context))
 				return lengthCache.GetData(context);
 
-			Bezier.OrientedPoint[] points = GetEvenlySpacedPoints(spacing, resolution);
+			var points = GetEvenlySpacedPoints(spacing, resolution);
 
 			float length = 0;
-			Vector3 lastPoint = Vector3.zero;
-			for (int i = 0; i < points.Length; ++i)
+			var lastPoint = Vector3.zero;
+			for (var i = 0; i < points.Length; ++i)
 			{
 				if (i > 0) length += (points[i].position - lastPoint).magnitude;
 				lastPoint = points[i].position;
@@ -492,7 +492,7 @@ namespace Barmetler.RoadSystem
 		public bool IsMaybeCloser(Vector3 worldPosition, float minDistance, float yScale)
 		{
 			float sqrDst;
-			Vector3 localPos = transform.InverseTransformPoint(worldPosition);
+			var localPos = transform.InverseTransformPoint(worldPosition);
 
 			// Check overall bounding box
 			sqrDst = bounds.SqrDistance(Vector3.Scale(localPos, new Vector3(1, yScale, 1)));
@@ -516,27 +516,27 @@ namespace Barmetler.RoadSystem
 		public float GetMinDistance(Vector3 worldPosition, float stepSize, float yScale, out Vector3 closestPoint, out float distanceAlongRoad)
 		{
 			float currDistAlongRoad = 0;
-			Vector3 localPos = transform.InverseTransformPoint(worldPosition);
-			Vector3 closestPointLocal = Vector3.zero;
+			var localPos = transform.InverseTransformPoint(worldPosition);
+			var closestPointLocal = Vector3.zero;
 
 			distanceAlongRoad = 0;
-			float minDst = float.PositiveInfinity;
+			var minDst = float.PositiveInfinity;
 
 			var points = GetEvenlySpacedPoints(stepSize);
 
-			for (int i = 0; i < points.Length; ++i)
+			for (var i = 0; i < points.Length; ++i)
 			{
 				var point = points[i];
 
-				float dst = Vector3.Scale(point.position - localPos, new Vector3(1, yScale, 1)).magnitude;
+				var dst = Vector3.Scale(point.position - localPos, new Vector3(1, yScale, 1)).magnitude;
 				if (dst < minDst)
 				{
-					Vector3 a = point.position;
+					var a = point.position;
 					Vector3 b;
 					float l;
-					Vector3 n = Vector3.zero;
-					bool correct = false;
-					bool backwards = false;
+					var n = Vector3.zero;
+					var correct = false;
+					var backwards = false;
 					float along = 0;
 					if (i < points.Length - 1)
 					{
@@ -564,7 +564,7 @@ namespace Barmetler.RoadSystem
 						}
 					}
 
-					Vector3 pt = point.position;
+					var pt = point.position;
 
 					if (correct)
 					{
@@ -593,7 +593,7 @@ namespace Barmetler.RoadSystem
 			evenlySpacedPointsCache.Invalidate();
 			CalculateEvenlySpacedPoints(1, 1, true);
 
-			if (Let(GetComponent<RoadMeshGenerator>(), out var generator))
+			if (GetComponent<RoadMeshGenerator>().Let(out var generator))
 			{
 				using (RoadMeshGeneratorPerfMarker.Auto())
 					generator.Invalidate(updateMesh);

@@ -72,15 +72,15 @@ namespace Barmetler.RoadSystem
 		void RemovePointsBehind()
 		{
 			var pos = transform.position;
-			int count = 0;
+			var count = 0;
 			for (; count < CurrentPoints.Count - 1; ++count)
 			{
 				// if next point is further away, stop (but don't stop if current point is really close)
-				float sqrDst = (CurrentPoints[count].position - pos).sqrMagnitude;
+				var sqrDst = (CurrentPoints[count].position - pos).sqrMagnitude;
 				if (
 					sqrDst < (CurrentPoints[count + 1].position - pos).sqrMagnitude &&
 					sqrDst > GraphStepSize / 2 * GraphStepSize / 2
-					) break;
+				) break;
 			}
 
 			if (count > 0)
@@ -92,11 +92,11 @@ namespace Barmetler.RoadSystem
 		void RemovePointsAhead()
 		{
 			var pos = Goal;
-			int count = 0;
+			var count = 0;
 			for (; count < CurrentPoints.Count - 1; ++count)
 			{
 				// if next point is further away, stop (but don't stop if current point is really close)
-				float sqrDst = (CurrentPoints[CurrentPoints.Count - 1 - count].position - pos).sqrMagnitude;
+				var sqrDst = (CurrentPoints[CurrentPoints.Count - 1 - count].position - pos).sqrMagnitude;
 				if (
 					sqrDst < (CurrentPoints[CurrentPoints.Count - 1 - count - 1].position - pos).sqrMagnitude &&
 					sqrDst > GraphStepSize / 2 * GraphStepSize / 2

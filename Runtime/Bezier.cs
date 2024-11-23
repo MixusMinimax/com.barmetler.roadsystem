@@ -8,10 +8,11 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Barmetler
+namespace Barmetler.RoadSystem
 {
     public static class Bezier
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 EvaluateQuadratic(Vector3 a, Vector3 b, Vector3 c, float t)
         {
             var p0 = Vector3.Lerp(a, b, t);
@@ -29,11 +30,13 @@ namespace Barmetler
                    d * (t * t * t);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 DeriveQuadratic(Vector3 a, Vector3 b, Vector3 c, float t)
         {
             return Vector3.Lerp(2 * (b - a), 2 * (c - b), t);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 DeriveCubic(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t)
         {
             return EvaluateQuadratic(3 * (b - a), 3 * (c - b), 3 * (d - c), t);
@@ -51,7 +54,7 @@ namespace Barmetler
                 var dp = DeriveCubic(a, b, c, d, t);
                 var delta = p2 - p;
                 var dot = Vector3.Dot(delta, dp);
-                if (dot == 0) // very unlikely, but possible
+                if (dot == 0) // Usually happens at i ~ 3
                     break;
                 t -= Vector3.Dot(delta, dp) / Vector3.Dot(dp, dp);
             }
@@ -82,7 +85,6 @@ namespace Barmetler
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public OrientedPoint(Vector3 p, Vector3 f, Vector3 n) { position = p; forward = f; normal = n; }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public OrientedPoint ToWorldSpace(Transform transform)
             {
                 var p = transform.TransformPoint(position);
@@ -91,7 +93,6 @@ namespace Barmetler
                 return new OrientedPoint(p, f, n);
             }
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public OrientedPoint ToLocalSpace(Transform transform)
             {
                 var p = transform.InverseTransformPoint(position);
@@ -119,18 +120,21 @@ namespace Barmetler
                 Spacing = spacing,
                 Resolution = resolution,
                 Result = new NativeList<OrientedPoint>(Allocator.TempJob),
-                Bounds = new Bounds(),
-                BoundingBoxes = new NativeList<Bounds>(Allocator.TempJob)
+                Bounds = new NativeArray<Bounds>(1, Allocator.TempJob),
+                BoundingBoxes = new NativeList<Bounds>(Allocator.TempJob),
+                LineLength = new NativeArray<float>(1, Allocator.TempJob)
             };
             job.Run();
             var result = job.Result.AsArray().ToArray();
-            bounds = job.Bounds;
+            bounds = job.Bounds[0];
             boundingBoxes?.Clear();
             boundingBoxes?.AddRange(job.BoundingBoxes.AsArray().ToArray());
             job.Points.Dispose();
             job.Normals.Dispose();
             job.Result.Dispose();
+            job.Bounds.Dispose();
             job.BoundingBoxes.Dispose();
+            job.LineLength.Dispose();
             return result;
         }
 
@@ -142,9 +146,15 @@ namespace Barmetler
             [ReadOnly] public float Spacing;
             [ReadOnly] public float Resolution;
             public NativeList<OrientedPoint> Result;
-            public Bounds Bounds;
+            /// <summary>
+            /// 1-element array, in order to box the data as Bounds is a value type.
+            /// </summary>
+            public NativeArray<Bounds> Bounds;
             public NativeList<Bounds> BoundingBoxes;
-            public float LineLength;
+            /// <summary>
+            /// 1-element array, in order to box the data.
+            /// </summary>
+            public NativeArray<float> LineLength;
 
             private int _numPoints;
             
@@ -191,11 +201,12 @@ namespace Barmetler
                 if (Normals.Length < numSegments + 1)
                     throw new ArgumentException("not enough normals!");
                 
-                Bounds.min = Vector3.positiveInfinity;
-                Bounds.max = Vector3.negativeInfinity;
+                var boundsValue = Bounds[0];
+                boundsValue.min = Vector3.positiveInfinity;
+                boundsValue.max = Vector3.negativeInfinity;
                 BoundingBoxes.Clear();
 
-                LineLength = 0;
+                LineLength[0] = 0;
 
                 var previousPoint = Points[0] - (Points[1] - Points[0]).normalized * Spacing;
                 float dstSinceLastEvenPoint = 0;
@@ -263,7 +274,7 @@ namespace Barmetler
                         if (startIndex != endIndexExclusive)
                         {
                             segmentLength += Vector3.Distance(previousPointOnCurve, p[3]);
-                            LineLength += segmentLength;
+                            LineLength[0] += segmentLength;
 
                             forwardOnCurve = DeriveCubic(p[0], p[1], p[2], p[3], 1).normalized;
                             normalOnCurve = Vector3.Cross(forwardOnCurve, Vector3.Cross(normalOnCurve, forwardOnCurve))
@@ -285,11 +296,12 @@ namespace Barmetler
                         }
                     }
 
-                    Bounds.Encapsulate(segmentBounds);
+                    if (segment == 0) boundsValue = segmentBounds;
+                    else boundsValue.Encapsulate(segmentBounds);
                     BoundingBoxes.Add(segmentBounds);
                 }
 
-                if (Result.Length <= 0) return;
+                if (Result.Length <= 0) goto end_cleanup;
                 var start = Result[0];
                 start.position = Points[0];
                 start.normal = Normals[0];
@@ -305,8 +317,8 @@ namespace Barmetler
                     ));
                     if (BoundingBoxes.Length > 0)
                         BoundingBoxes[BoundingBoxes.Length - 1].Encapsulate(Points[LoopIndex(-1)]);
-                    Bounds.Encapsulate(Points[LoopIndex(-1)]);
-                    return;
+                    boundsValue.Encapsulate(Points[LoopIndex(-1)]);
+                    goto end_cleanup;
                 }
                 var end = Result[Result.Length - 1];
                 end.position = Points[LoopIndex(-1)];
@@ -314,6 +326,8 @@ namespace Barmetler
                 end.forward = DeriveCubic(Points[LoopIndex(-4)], Points[LoopIndex(-3)],
                     Points[LoopIndex(-2)], Points[LoopIndex(-1)], 1).normalized;
                 Result[Result.Length - 1] = end;
+                end_cleanup:
+                Bounds[0] = boundsValue;
             }
         }
 

@@ -544,7 +544,7 @@ namespace Barmetler.RoadSystem
 				newMesh.RecalculateBounds();
 			
 			mf.sharedMesh = newMesh;
-			if (Let(GetComponent<MeshCollider>(), out var coll))
+			if (GetComponent<MeshCollider>().Let(out var coll))
 				coll.sharedMesh = mf.sharedMesh;
 
 			Valid = true;

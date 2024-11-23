@@ -14,7 +14,7 @@ namespace Barmetler.RoadSystem
         public void SetRoad(Road road, bool isStart = true)
         {
             if (road == this.road) return;
-            if (this.road != null && (this.isStart ? this.road.start : this.road.end) == this)
+            if (this.road && (this.isStart ? this.road.start : this.road.end) == this)
                 throw new System.Exception("Already connected to different road!");
             this.road = road;
             this.isStart = isStart;
@@ -54,7 +54,7 @@ namespace Barmetler.RoadSystem
 
         private void OnValidate()
         {
-            if (road == null || ((isStart ? road.start : road.end) != this)) road = null;
+            if (!road || (isStart ? road.start : road.end) != this) road = null;
         }
     }
 }
