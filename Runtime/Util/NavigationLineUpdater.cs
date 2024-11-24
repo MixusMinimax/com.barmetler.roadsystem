@@ -44,7 +44,7 @@ namespace Barmetler.RoadSystem
 
         Vector3[] UpdateData()
         {
-            var points = navigator.CurrentPoints.Select(e => e.position).ToList();
+            var points = navigator.CurrentPoints.Points.Select(e => e.position).ToList();
 
             LineUtility.Simplify(points.ToList(), Tolerance, points);
 

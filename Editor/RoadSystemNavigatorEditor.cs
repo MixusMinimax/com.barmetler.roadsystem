@@ -23,7 +23,14 @@ namespace Barmetler.RoadSystem
 		{
 			if (settings.AutoCalculateNavigator)
 			{
-				navigator.CalculateWayPointsSync();
+				try
+				{
+					navigator.CalculateWayPointsSync();
+				} catch (System.Exception e)
+				{
+					Debug.LogError(e);
+				}
+
 				SceneView.RepaintAll();
 			}
 		}
@@ -37,7 +44,7 @@ namespace Barmetler.RoadSystem
 				Vector3 position;
 				Vector3 lastPos = navigator.transform.position;
 				Handles.color = Color.yellow;
-				foreach (var point in points)
+				foreach (var point in points.Points)
 				{
 					position = point.position;
 					Handles.DrawLine(lastPos, position);
@@ -55,9 +62,19 @@ namespace Barmetler.RoadSystem
 
 				if (settings.DrawNavigatorDebugPoints)
 				{
-					foreach (var point in points)
+					foreach (var point in points.Points)
 					{
 						Handles.SphereHandleCap(0, point.position, Quaternion.identity, 0.2f, EventType.Repaint);
+					}
+				}
+
+				if (points.Nodes.Count > 0 && navigator.currentRoadSystem)
+				{
+					foreach (var node in points.Nodes)
+					{
+						var pos = navigator.currentRoadSystem.transform.TransformPoint(node.position);
+						Handles.Label(pos, node.nodeType.ToString(),
+							new GUIStyle { normal = new GUIStyleState { textColor = Color.red } });
 					}
 				}
 			}

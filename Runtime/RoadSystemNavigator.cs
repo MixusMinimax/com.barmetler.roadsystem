@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
-	using PointList = List<Bezier.OrientedPoint>;
+	// using PointList = List<Bezier.OrientedPoint>;
 
 	public class RoadSystemNavigator : MonoBehaviour
 	{
@@ -73,19 +73,19 @@ namespace Barmetler.RoadSystem
 		{
 			var pos = transform.position;
 			var count = 0;
-			for (; count < CurrentPoints.Count - 1; ++count)
+			for (; count < CurrentPoints.Points.Count - 1; ++count)
 			{
 				// if next point is further away, stop (but don't stop if current point is really close)
-				var sqrDst = (CurrentPoints[count].position - pos).sqrMagnitude;
+				var sqrDst = (CurrentPoints.Points[count].position - pos).sqrMagnitude;
 				if (
-					sqrDst < (CurrentPoints[count + 1].position - pos).sqrMagnitude &&
+					sqrDst < (CurrentPoints.Points[count + 1].position - pos).sqrMagnitude &&
 					sqrDst > GraphStepSize / 2 * GraphStepSize / 2
 				) break;
 			}
 
 			if (count > 0)
 			{
-				CurrentPoints.RemoveRange(0, count);
+				CurrentPoints.Points.RemoveRange(0, count);
 			}
 		}
 
@@ -93,19 +93,19 @@ namespace Barmetler.RoadSystem
 		{
 			var pos = Goal;
 			var count = 0;
-			for (; count < CurrentPoints.Count - 1; ++count)
+			for (; count < CurrentPoints.Points.Count - 1; ++count)
 			{
 				// if next point is further away, stop (but don't stop if current point is really close)
-				var sqrDst = (CurrentPoints[CurrentPoints.Count - 1 - count].position - pos).sqrMagnitude;
+				var sqrDst = (CurrentPoints.Points[CurrentPoints.Points.Count - 1 - count].position - pos).sqrMagnitude;
 				if (
-					sqrDst < (CurrentPoints[CurrentPoints.Count - 1 - count - 1].position - pos).sqrMagnitude &&
+					sqrDst < (CurrentPoints.Points[CurrentPoints.Points.Count - 1 - count - 1].position - pos).sqrMagnitude &&
 					sqrDst > GraphStepSize / 2 * GraphStepSize / 2
 					) break;
 			}
 
 			if (count > 0)
 			{
-				CurrentPoints.RemoveRange(CurrentPoints.Count - count, count);
+				CurrentPoints.Points.RemoveRange(CurrentPoints.Points.Count - count, count);
 			}
 		}
 

@@ -2,6 +2,8 @@ using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 using Barmetler.DictExtensions;
+using Path_Finding;
+using Unity.Burst;
 
 namespace Barmetler
 {
@@ -20,7 +22,7 @@ namespace Barmetler
 		}
 	}
 
-	public abstract class AStar
+	public static class AStar
 	{
 		public class NodeBase
 		{
@@ -39,23 +41,20 @@ namespace Barmetler
 		/// </summary>
 		/// <typeparam name="NodeType">- Must Extend AStar.NodeBase</typeparam>
 		/// <param name="nodes"></param>
-		/// <param name="weights">- weights[x,y] is edge cost from x to y.</param>
+		/// <param name="weights">weights[x,y] is edge cost from x to y.</param>
 		/// <param name="start"></param>
 		/// <param name="goal"></param>
-		/// <param name="heuristic">- Eulerian distance to goal per default.</param>
+		/// <param name="heuristic">Eulerian distance to goal per default.</param>
 		/// <returns>Shortest path from start to goal.</returns>
 		public static List<NodeType> FindShortestPath<NodeType>(
 			List<NodeType> nodes, TwoDimensionalArray<float> weights, NodeType start, NodeType goal,
-			Heuristic<NodeType> heuristic = null
+			Heuristic<NodeType> heuristic = null, int maxSteps = 10000
 		)
 			where NodeType : NodeBase
 		{
 			heuristic ??= DefaultHeuristic;
 			float h(NodeType node) => heuristic(node, start);
-
-			var path = new List<NodeType>();
-
-			var openSet = new List<NodeType>(new[] { start });
+			
 			var cameFrom = new Dictionary<NodeType, NodeType>();
 			var gScore = new Dictionary<NodeType, float>
 			{
@@ -66,14 +65,28 @@ namespace Barmetler
 				[start] = h(start)
 			};
 
-			int steps = 0;
-
-			while (openSet.Count > 0)
+			var comparer = Comparer<NodeType>.Create((a, b) =>
 			{
-				++steps;
-				openSet = openSet.OrderBy(delegate (NodeType node) { return fScore.GetWithDefault(node, float.PositiveInfinity); }).ToList();
-				var current = openSet[0];
-				openSet.RemoveAt(0);
+				var fCompare = fScore.GetWithDefault(a, float.PositiveInfinity)
+					.CompareTo(fScore.GetWithDefault(b, float.PositiveInfinity));
+				if (fCompare != 0) return fCompare;
+				var gCompare = gScore.GetWithDefault(a, float.PositiveInfinity)
+					.CompareTo(gScore.GetWithDefault(b, float.PositiveInfinity));
+				if (gCompare != 0) return gCompare;
+				return nodes.IndexOf(a).CompareTo(nodes.IndexOf(b));
+			});
+			
+			var openSet = new SortedSet<NodeType>(new[] { start }, comparer);
+
+			for (var steps = 0; openSet.Count > 0; ++steps)
+			{
+				if (steps == maxSteps)
+					_ = 0; // for debugging
+				if (steps > maxSteps)
+					throw new System.Exception("Too many steps!");
+
+				var current = openSet.Min;
+				openSet.Remove(current);
 				if (current == goal)
 				{
 					// Debug.Log("Steps taken: " + steps);
@@ -86,12 +99,14 @@ namespace Barmetler
 					var tentative_gScore = gScore[current] + neighbor.Value;
 					if (tentative_gScore < gScore.GetWithDefault(neighbor.Key, float.PositiveInfinity))
 					{
+						// remove before adding to make sure it's re-sorted
+						openSet.Remove(neighbor.Key);
+
 						cameFrom[neighbor.Key] = current;
 						gScore[neighbor.Key] = tentative_gScore;
 						fScore[neighbor.Key] = gScore[neighbor.Key] + h(neighbor.Key);
 
-						if (!openSet.Contains(neighbor.Key))
-							openSet.Add(neighbor.Key);
+						openSet.Add(neighbor.Key);
 					}
 				}
 			}
@@ -117,10 +132,17 @@ namespace Barmetler
 			var index = nodes.IndexOf(current);
 			for (int other = 0; other < nodes.Count; ++other)
 			{
-				if (!float.IsInfinity(weights[index, other]))
-					l.Add(new KeyValuePair<NodeType, float>(nodes[other], weights[index, other]));
+				if (index == other) continue;
+				if (float.IsInfinity(weights[index, other])) continue;
+				l.Add(new KeyValuePair<NodeType, float>(nodes[other], weights[index, other]));
 			}
 			return l;
+		}
+
+		public static void FindShortestPath(
+			Graph graph
+		)
+		{
 		}
 	}
 }

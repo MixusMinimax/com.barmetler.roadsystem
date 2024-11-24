@@ -1,12 +1,16 @@
 using System;
 using System.Linq;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Util;
 
 namespace Barmetler.RoadSystem
 {
-	using PointList = List<Bezier.OrientedPoint>;
+	public class PointList
+	{
+		public List<Bezier.OrientedPoint> Points = new List<Bezier.OrientedPoint>();
+		public List<RoadSystem.Graph.Node> Nodes = new List<RoadSystem.Graph.Node>();
+	}
 
 	public class RoadSystem : MonoBehaviour
 	{
@@ -55,13 +59,13 @@ namespace Barmetler.RoadSystem
 			closestPoint = Vector3.zero;
 			distanceAlongRoad = 0;
 
-			float minDst = float.PositiveInfinity;
+			var minDst = float.PositiveInfinity;
 
 			foreach (var road in roads)
 			{
 				if (road.IsMaybeCloser(worldPosition, minDst * yScale, yScale))
 				{
-					float dst = road.GetMinDistance(worldPosition, stepSize, yScale, out Vector3 newClosestPoint, out float newDistanceAlongRoad);
+					var dst = road.GetMinDistance(worldPosition, stepSize, yScale, out var newClosestPoint, out var newDistanceAlongRoad);
 					if (dst < minDst)
 					{
 						minDst = dst;
@@ -84,12 +88,12 @@ namespace Barmetler.RoadSystem
 			closestPoint = Vector3.zero;
 			distanceAlongRoad = 0;
 
-			float minDst = float.PositiveInfinity;
+			var minDst = float.PositiveInfinity;
 
 			foreach (var intersection in intersections)
 			{
 				if (!intersection) continue;
-				float dst =
+				var dst =
 					Vector3.Scale(intersection.transform.position - worldPosition, new Vector3(1, yScale, 1)).magnitude -
 					intersection.Radius;
 				if (dst < minDst)
@@ -144,28 +148,28 @@ namespace Barmetler.RoadSystem
 			return graph.GetEdges();
 		}
 
-		public List<Bezier.OrientedPoint> FindPath(
+		public PointList FindPath(
 			Vector3 startPosWorld, Vector3 goalPosWorld,
 			float yScale = 1, float stepSize = 1, float minDstToRoadToConnect = 10)
 		{
 			List<Graph.Node> nodes;
 
-			float startDistRoad = GetMinDistance(
+			var startDistRoad = GetMinDistance(
 				startPosWorld, stepSize, yScale,
-				out Road startRoad, out Vector3 startPosition1, out float startDstAlongRoad1);
-			float startDistIntersection = GetMinDistance(
+				out var startRoad, out var startPosition1, out var startDstAlongRoad1);
+			var startDistIntersection = GetMinDistance(
 				startPosWorld, yScale,
-				out Intersection _, out RoadAnchor startAnchor,
-				out Vector3 startPosition2, out float startDstAlongRoad2);
+				out var _, out var startAnchor,
+				out var startPosition2, out var startDstAlongRoad2);
 			var startUseRoad = startDistRoad < startDistIntersection;
 
-			float goalDistRoad = GetMinDistance(
+			var goalDistRoad = GetMinDistance(
 				goalPosWorld, stepSize, yScale,
-				out Road goalRoad, out Vector3 goalPosition1, out float goalDstAlongRoad1);
-			float goalDistIntersection = GetMinDistance(
+				out var goalRoad, out var goalPosition1, out var goalDstAlongRoad1);
+			var goalDistIntersection = GetMinDistance(
 				goalPosWorld, yScale,
-				out Intersection _, out RoadAnchor goalAnchor,
-				out Vector3 goalPosition2, out float goalDstAlongRoad2);
+				out var _, out var goalAnchor,
+				out var goalPosition2, out var goalDstAlongRoad2);
 			var goalUseRoad = goalDistRoad < goalDistIntersection;
 
 
@@ -186,7 +190,7 @@ namespace Barmetler.RoadSystem
 			Vector3 startPosWorld, Vector3 goalPosWorld, List<Graph.Node> nodes,
 			float stepSize = 1, float minDstToRoadToConnect = 10)
 		{
-			var pathPoints = new PointList();
+			var pathPoints = new List<Bezier.OrientedPoint>();
 
 			if (nodes.Count == 2 && nodes[0].road)
 			{
@@ -194,7 +198,7 @@ namespace Barmetler.RoadSystem
 				var b = Mathf.Max(nodes[0].distanceAlongRoad, nodes[1].distanceAlongRoad);
 				var pts = nodes[0].road.GetEvenlySpacedPoints(stepSize);
 				float d = 0;
-				for (int i = 0; i < pts.Length; ++i)
+				for (var i = 0; i < pts.Length; ++i)
 				{
 					if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
 					if (d >= a && d <= b) pathPoints.Add(pts[i].ToWorldSpace(nodes[0].road.transform));
@@ -207,9 +211,9 @@ namespace Barmetler.RoadSystem
 				var b = nodes[1].distanceAlongRoad;
 				var intersection = nodes[0].anchor.Intersection.transform.position;
 				var n = (nodes[0].anchor.transform.position - intersection).normalized;
-				int nPoints = Mathf.CeilToInt(Mathf.Abs(b - a) / stepSize);
+				var nPoints = Mathf.CeilToInt(Mathf.Abs(b - a) / stepSize);
 				if (nPoints == 1) ++nPoints;
-				for (int i = 0; i < nPoints; ++i)
+				for (var i = 0; i < nPoints; ++i)
 				{
 					var t = Mathf.Lerp(a, b, (float)i / Mathf.Max(1, nPoints - 1));
 					pathPoints.Add(new Bezier.OrientedPoint(intersection + t * n, n, nodes[0].anchor.Intersection.transform.up));
@@ -217,16 +221,16 @@ namespace Barmetler.RoadSystem
 			}
 			else
 			{
-				int count = nodes.Count;
-				for (int wpt = 0; wpt < count; ++wpt)
+				var count = nodes.Count;
+				for (var wpt = 0; wpt < count; ++wpt)
 				{
 					if (wpt == 0 && nodes[wpt].road != null) // Start Road Section
 					{
-						float dst = nodes[0].distanceAlongRoad;
-						bool reverse = nodes[1].anchor == nodes[0].road.start;
+						var dst = nodes[0].distanceAlongRoad;
+						var reverse = nodes[1].anchor == nodes[0].road.start;
 						var pts = nodes[0].road.GetEvenlySpacedPoints(stepSize);
 						float d = 0;
-						for (int i = 0; i < pts.Length; ++i)
+						for (var i = 0; i < pts.Length; ++i)
 						{
 							if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
 							if (!reverse && d >= dst)
@@ -243,12 +247,12 @@ namespace Barmetler.RoadSystem
 						var b = nodes[wpt + 1].position;
 						var l = (b - a).magnitude;
 						var n = (b - a).normalized;
-						int amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
+						var amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
 						var up1 = nodes[wpt].anchor.transform.up;
 						var up2 = nodes[wpt + 1].anchor?.transform?.up ?? nodes[wpt + 1].intersection.transform.up;
-						for (int i = 0; i <= amount; ++i)
+						for (var i = 0; i <= amount; ++i)
 						{
-							float f = (float)i / amount;
+							var f = (float)i / amount;
 							pathPoints.Add(
 								new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
 								.ToWorldSpace(transform));
@@ -256,12 +260,12 @@ namespace Barmetler.RoadSystem
 					}
 					else if (wpt == count - 1 && nodes[wpt].road != null) // End Road Section
 					{
-						float dst = nodes[wpt].distanceAlongRoad;
-						bool reverse = nodes[wpt - 1].anchor == nodes[wpt].road.end;
+						var dst = nodes[wpt].distanceAlongRoad;
+						var reverse = nodes[wpt - 1].anchor == nodes[wpt].road.end;
 						var pts = nodes[wpt].road.GetEvenlySpacedPoints(stepSize);
 						float d = 0;
-						int insertAt = pathPoints.Count;
-						for (int i = 0; i < pts.Length; ++i)
+						var insertAt = pathPoints.Count;
+						for (var i = 0; i < pts.Length; ++i)
 						{
 							if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
 							if (!reverse && d <= dst)
@@ -281,12 +285,12 @@ namespace Barmetler.RoadSystem
 						var b = nodes[wpt].position;
 						var l = (b - a).magnitude;
 						var n = (b - a).normalized;
-						int amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
+						var amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
 						var up1 = nodes[wpt - 1].anchor?.transform?.up ?? nodes[wpt - 1].intersection.transform.up;
 						var up2 = nodes[wpt].anchor.transform.up;
-						for (int i = 1; i <= amount; ++i)
+						for (var i = 1; i <= amount; ++i)
 						{
-							float f = (float)i / amount;
+							var f = (float)i / amount;
 							pathPoints.Add(
 								new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
 								.ToWorldSpace(transform));
@@ -301,11 +305,11 @@ namespace Barmetler.RoadSystem
 						var road = a.GetConnectedRoad();
 						if (road)
 						{
-							bool reverse = road.end == a;
-							int insertAt = pathPoints.Count;
+							var reverse = road.end == a;
+							var insertAt = pathPoints.Count;
 							var pts = road.GetEvenlySpacedPoints(stepSize);
 
-							for (int i = 0; i < pts.Length; ++i)
+							for (var i = 0; i < pts.Length; ++i)
 							{
 								if (!reverse)
 									pathPoints.Add(pts[i].ToWorldSpace(road.transform));
@@ -329,12 +333,12 @@ namespace Barmetler.RoadSystem
 						var b = nodes[wpt + 1].position;
 						var l = (b - a).magnitude;
 						var n = (b - a).normalized;
-						int amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
+						var amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
 						var up1 = nodes[wpt].anchor?.transform?.up ?? nodes[wpt].intersection.transform.up;
 						var up2 = nodes[wpt + 1].anchor?.transform?.up ?? nodes[wpt + 1].intersection.transform.up;
-						for (int i = 1; i <= amount - (nodes[wpt].nodeType == Graph.Node.NodeType.INTERSECTION ? 1 : 0); ++i)
+						for (var i = 1; i <= amount - (nodes[wpt].nodeType == Graph.Node.NodeType.INTERSECTION ? 1 : 0); ++i)
 						{
-							float f = (float)i / amount;
+							var f = (float)i / amount;
 							pathPoints.Add(
 								new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
 								.ToWorldSpace(transform));
@@ -346,17 +350,17 @@ namespace Barmetler.RoadSystem
 			// Connect Start and End Point to road
 			if (pathPoints.Count > 0)
 			{
-				for (int end = 0; end < 2; ++end)
+				for (var end = 0; end < 2; ++end)
 				{
 					var pos = end == 0 ? startPosWorld : goalPosWorld;
 					var point = pathPoints[end * (pathPoints.Count - 1)];
 					var dst = (pos - point.position).magnitude;
 					if (dst >= minDstToRoadToConnect)
 					{
-						int count = (int)(dst / stepSize);
-						for (int i = count - 1; i >= 0; --i)
+						var count = (int)(dst / stepSize);
+						for (var i = count - 1; i >= 0; --i)
 						{
-							float t = (float)i / count;
+							var t = (float)i / count;
 							var newPoint = new Bezier.OrientedPoint(
 								Vector3.Lerp(pos, point.position, t), point.forward, point.normal);
 							if (end == 0)
@@ -368,11 +372,15 @@ namespace Barmetler.RoadSystem
 				}
 			}
 
-			return pathPoints;
+			return new PointList
+			{
+				Points = pathPoints,
+				Nodes = nodes
+			};
 		}
 
 		[Serializable]
-		private class Graph
+		public class Graph
 		{
 			[Serializable]
 			public class Node : AStar.NodeBase
@@ -447,19 +455,19 @@ namespace Barmetler.RoadSystem
 			public void ConstructGraph()
 			{
 				nodes = new List<Node>();
-				int count = roadSystem.intersections.Select(delegate (Intersection intersection) { return 1 + intersection.AnchorPoints.Length; }).Sum();
+				var count = roadSystem.intersections.Select(delegate (Intersection intersection) { return 1 + intersection.AnchorPoints.Length; }).Sum();
 				weights = new TwoDimensionalArray<float>(count, count);
 
-				for (int i = 0; i < count; ++i)
-					for (int j = 0; j < count; ++j)
+				for (var i = 0; i < count; ++i)
+					for (var j = 0; j < count; ++j)
 						weights[i, j] = float.PositiveInfinity;
 
 				foreach (var intersection in roadSystem.intersections)
 				{
 					intersection.Invalidate(false);
-					int index = nodes.Count;
+					var index = nodes.Count;
 					nodes.Add(new Node(intersection, roadSystem));
-					for (int i = 0; i < intersection.AnchorPoints.Length; ++i)
+					for (var i = 0; i < intersection.AnchorPoints.Length; ++i)
 					{
 						nodes.Add(new Node(intersection.AnchorPoints[i], roadSystem));
 						weights[index, index + i + 1] = weights[index + i + 1, index] = (nodes[index].position - nodes[index + i + 1].position).magnitude;
@@ -471,8 +479,8 @@ namespace Barmetler.RoadSystem
 					road.OnValidate();
 					if (road.start != null && road.end != null)
 					{
-						int startIndex = FindIndex(road.start, nodes);
-						int endIndex = FindIndex(road.end, nodes);
+						var startIndex = FindIndex(road.start, nodes);
+						var endIndex = FindIndex(road.end, nodes);
 						if (startIndex != -1 && endIndex != -1)
 							weights[startIndex, endIndex] = weights[endIndex, startIndex] = road.GetLength();
 					}
@@ -480,9 +488,9 @@ namespace Barmetler.RoadSystem
 
 				// Connect all nodes with 1000x their distance, so that islands can still connect, and not exception will be thrown.
 				// This shouldn't really be needed, because islands shouldn't exist in a roadsystem, so it's more of a failsafe.
-				for (int i = 0; i < count; ++i)
+				for (var i = 0; i < count; ++i)
 				{
-					for (int j = i; j < count; ++j)
+					for (var j = i; j < count; ++j)
 					{
 						var weight = (nodes[i].position - nodes[j].position).magnitude * roadSystem.DistanceFactor;
 						if (float.IsInfinity(weights[i, j])) weights[i, j] = weight;
@@ -494,9 +502,9 @@ namespace Barmetler.RoadSystem
 			public List<Edge> GetEdges()
 			{
 				var ret = new List<Edge>();
-				for (int from = 0; from < nodes.Count; ++from)
+				for (var from = 0; from < nodes.Count; ++from)
 				{
-					for (int to = 0; to < nodes.Count; ++to)
+					for (var to = 0; to < nodes.Count; ++to)
 					{
 						if (weights[from, to] < 5e3 && weights[from, to] > 1e-3)
 						{
@@ -546,7 +554,7 @@ namespace Barmetler.RoadSystem
 			public List<Node> FindPath(Vector3 startPosWorld, Road startRoad, RoadAnchor startAnchor, float startDistanceAlongRoad,
 				Vector3 goalPosWorld, Road goalRoad, RoadAnchor goalAnchor, float goalDistanceAlongRoad)
 			{
-				List<Node> nodes = this.nodes.ToList();
+				var nodes = this.nodes.ToList();
 
 				if (goalRoad != null)
 				{
@@ -568,13 +576,13 @@ namespace Barmetler.RoadSystem
 				var weights = new TwoDimensionalArray<float>(nodes.Count, nodes.Count);
 				this.weights.CopyInto(float.PositiveInfinity, weights, new Vector2Int(2, 2), Vector2Int.zero);
 
-				int startIndex = 0;
-				int goalIndex = 1;
+				var startIndex = 0;
+				var goalIndex = 1;
 				var startPosLocal = nodes[startIndex].position;
 				var goalPosLocal = nodes[goalIndex].position;
 
-				for (int i = 0; i < weights.Width; ++i)
-					for (int j = 0; j < 2; ++j)
+				for (var i = 0; i < weights.Width; ++i)
+					for (var j = 0; j < 2; ++j)
 						weights[i, j == 0 ? startIndex : goalIndex] = weights[j == 0 ? startIndex : goalIndex, i] =
 							(nodes[j == 0 ? startIndex : goalIndex].position - nodes[i].position).magnitude * roadSystem.DistanceFactor;
 
@@ -582,8 +590,8 @@ namespace Barmetler.RoadSystem
 				{
 					weights[startIndex, goalIndex] = weights[goalIndex, startIndex] = Mathf.Abs(startDistanceAlongRoad - goalDistanceAlongRoad);
 
-					int roadStartIndex = FindIndex(startRoad.start, nodes);
-					int roadEndIndex = FindIndex(startRoad.end, nodes);
+					var roadStartIndex = FindIndex(startRoad.start, nodes);
+					var roadEndIndex = FindIndex(startRoad.end, nodes);
 
 					if (startDistanceAlongRoad > goalDistanceAlongRoad)
 					{
@@ -612,9 +620,9 @@ namespace Barmetler.RoadSystem
 				{
 					weights[startIndex, goalIndex] = weights[goalIndex, startIndex] = (startPosLocal - goalPosLocal).magnitude;
 
-					int anchorIndex = FindIndex(startAnchor, nodes);
-					int intersectionIndex = FindIndex(startAnchor.Intersection, nodes);
-					float length = (startAnchor.transform.position - startAnchor.Intersection.transform.position).magnitude;
+					var anchorIndex = FindIndex(startAnchor, nodes);
+					var intersectionIndex = FindIndex(startAnchor.Intersection, nodes);
+					var length = (startAnchor.transform.position - startAnchor.Intersection.transform.position).magnitude;
 
 					if (startDistanceAlongRoad > goalDistanceAlongRoad)
 					{
@@ -630,17 +638,17 @@ namespace Barmetler.RoadSystem
 				else
 				{
 					// connect start and end to roadEnds
-					for (int i = 0; i < 2; ++i)
+					for (var i = 0; i < 2; ++i)
 					{
-						Road road = (i == 0 ? startRoad : goalRoad);
-						RoadAnchor anchor = (i == 0 ? startAnchor : goalAnchor);
-						int pointIndex = i == 0 ? startIndex : goalIndex;
-						float distanceAlongRoad = i == 0 ? startDistanceAlongRoad : goalDistanceAlongRoad;
+						var road = (i == 0 ? startRoad : goalRoad);
+						var anchor = (i == 0 ? startAnchor : goalAnchor);
+						var pointIndex = i == 0 ? startIndex : goalIndex;
+						var distanceAlongRoad = i == 0 ? startDistanceAlongRoad : goalDistanceAlongRoad;
 
 						if (road != null)
 						{
-							int roadStartIndex = FindIndex(road.start, nodes);
-							int roadEndIndex = FindIndex(road.end, nodes);
+							var roadStartIndex = FindIndex(road.start, nodes);
+							var roadEndIndex = FindIndex(road.end, nodes);
 
 							if (roadEndIndex != -1)
 								weights[pointIndex, roadEndIndex] = weights[roadEndIndex, pointIndex] =
@@ -652,9 +660,9 @@ namespace Barmetler.RoadSystem
 						}
 						else if (anchor != null)
 						{
-							int intersectionIndex = FindIndex(anchor.Intersection, nodes);
-							int anchorIndex = FindIndex(anchor, nodes);
-							float length = (anchor.transform.position - anchor.Intersection.transform.position).magnitude;
+							var intersectionIndex = FindIndex(anchor.Intersection, nodes);
+							var anchorIndex = FindIndex(anchor, nodes);
+							var length = (anchor.transform.position - anchor.Intersection.transform.position).magnitude;
 
 							weights[intersectionIndex, pointIndex] = weights[pointIndex, intersectionIndex] = distanceAlongRoad;
 							weights[anchorIndex, pointIndex] = weights[pointIndex, anchorIndex] = length - distanceAlongRoad;
