@@ -12,7 +12,7 @@ namespace Tests.Runtime
     public unsafe class NativeTwoDimensionalArrayTests
     {
         [Test]
-        public void Index_ShouldPlaceDataCorrectly()
+        public void T010_Index_ShouldPlaceDataCorrectly()
         {
             var arr = new TwoDimensionalNativeArray<int>(8, 12, Allocator.Temp);
             for (int i = 0, y = 0; y < arr.Height; ++y)
@@ -54,7 +54,7 @@ namespace Tests.Runtime
         }
 
         [Test]
-        public void IsBurstJob_ShouldReturnTrue()
+        public void T020_IsBurstJob_ShouldReturnTrue()
         {
             bool isBurst;
             var job = new CheckIsBurstJob { IsBurstPtr = &isBurst };
@@ -71,7 +71,7 @@ namespace Tests.Runtime
         }
 
         [Test]
-        public void IsBurstFunction_ShouldReturnTrue()
+        public void T030_IsBurstFunction_ShouldReturnTrue()
         {
             var f = BurstCompiler.CompileFunctionPointer<CheckIsBurstFunctionDelegate>(CheckIsBurstFunction).Invoke;
             Assert.AreEqual(true, f());
@@ -95,7 +95,7 @@ namespace Tests.Runtime
         }
 
         [Test]
-        public void BurstSequential_ShouldPlaceDataCorrectly()
+        public void T040_BurstSequential_ShouldPlaceDataCorrectly()
         {
             var arr = new TwoDimensionalNativeArray<int>(8, 12, Allocator.TempJob);
             try
@@ -139,7 +139,7 @@ namespace Tests.Runtime
         }
 
         [Test]
-        public void BurstParallel_ShouldPlaceDataCorrectly()
+        public void T050_BurstParallel_ShouldPlaceDataCorrectly()
         {
             var arr = new TwoDimensionalNativeArray<int>(8, 12, Allocator.TempJob);
             try
@@ -166,7 +166,7 @@ namespace Tests.Runtime
         }
 
         [Test]
-        public void Extended_ShouldPlaceDataCorrectly()
+        public void T060_Extended_ShouldPlaceDataCorrectly()
         {
             var arr = new ExtendedTwoDimensionalNativeArray<int>(
                 new TwoDimensionalNativeArray<int>(5, 6, Allocator.Temp),
@@ -189,7 +189,7 @@ namespace Tests.Runtime
         }
 
         [Test]
-        public void ExtendedExistingInner_ShouldReturnDataCorrectly()
+        public void T070_ExtendedExistingInner_ShouldReturnDataCorrectly()
         {
             var inner = new TwoDimensionalNativeArray<int>(4, 6, Allocator.Temp);
             for (int i = 1, y = 0; y < inner.Height; ++y)
@@ -216,8 +216,7 @@ namespace Tests.Runtime
                 var actual = outer.ToArray();
 
                 Assert.AreEqual(expected.Length, actual.Length);
-                for (var i = 0; i < expected.Length; ++i)
-                    Assert.AreEqual(expected[i], actual[i]);
+                CollectionAssert.AreEqual(expected, actual);
             }
             finally
             {

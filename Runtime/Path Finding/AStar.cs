@@ -1,9 +1,10 @@
-using System.Linq;
 using System.Collections.Generic;
 using UnityEngine;
 using Barmetler.DictExtensions;
-using Path_Finding;
-using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
+using Util;
 
 namespace Barmetler
 {
@@ -17,7 +18,7 @@ namespace Barmetler
 			/// <returns>this[k] if exists, defaultValue otherwise</returns>
 			public static V GetWithDefault<K, V>(this Dictionary<K, V> dict, K key, V defaultValue)
 			{
-				return dict.TryGetValue(key, out V value) ? value : defaultValue;
+				return dict.TryGetValue(key, out var value) ? value : defaultValue;
 			}
 		}
 	}
@@ -130,7 +131,7 @@ namespace Barmetler
 		{
 			var l = new List<KeyValuePair<NodeType, float>>();
 			var index = nodes.IndexOf(current);
-			for (int other = 0; other < nodes.Count; ++other)
+			for (var other = 0; other < nodes.Count; ++other)
 			{
 				if (index == other) continue;
 				if (float.IsInfinity(weights[index, other])) continue;
@@ -139,10 +140,37 @@ namespace Barmetler
 			return l;
 		}
 
-		public static void FindShortestPath(
-			Graph graph
+		private struct FindShortestPathJob : IJob
+		{
+			[ReadOnly] public NativeArray<float3> Nodes;
+			[ReadOnly] public ExtendedTwoDimensionalNativeArray<float> Weights;
+			[ReadOnly] public int Start;
+			[ReadOnly] public int Goal;
+			
+			[WriteOnly] public NativeList<int> Path;
+
+			public void Execute()
+			{
+				throw new System.NotImplementedException();
+			}
+		}
+
+		public static int[] FindShortestPath(
+			NativeArray<float3> nodes, ExtendedTwoDimensionalNativeArray<float> weights, int start, int goal
 		)
 		{
+			var job = new FindShortestPathJob
+			{
+				Nodes = nodes,
+				Weights = weights,
+				Start = start,
+				Goal = goal,
+				Path = new NativeList<int>(Allocator.TempJob)
+			};
+			job.Run();
+			var path = job.Path.ToArray();
+			job.Path.Dispose();
+			return path;
 		}
 	}
 }
