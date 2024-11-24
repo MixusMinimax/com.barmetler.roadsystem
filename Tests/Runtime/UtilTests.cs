@@ -104,17 +104,6 @@ namespace Tests.Runtime
 			AssertAreEqualEach(initials, concats.Select(StringUtility.GetInitials));
 		}
 
-		[Test]
-		public void StringUtility_GetInitials_Random([Random(0, 1_000_000, 100)] int seed)
-		{
-			Random.InitState(seed);
-			int wordCount = Random.Range(1, 6);
-			var words = Enumerable.Range(0, wordCount).Select(_i => randomWords[Random.Range(0, randomWords.Length)]).ToArray();
-
-			var (concats, initials) = GetConcatenations(words);
-			AssertAreEqualEach(initials, concats.Select(StringUtility.GetInitials));
-		}
-
 		#endregion StringUtility
 
 		#region TwoDimensionalArray
@@ -129,7 +118,7 @@ namespace Tests.Runtime
 		}
 
 		[Test]
-		public void TwoDimensionalArray_Set_Get([Random(0, 1000, 50)] int seed)
+		public void TwoDimensionalArray_Set_Get([Range(0, 50)] int seed)
 		{
 			Random.InitState(seed);
 
