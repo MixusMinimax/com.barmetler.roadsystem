@@ -2,8 +2,8 @@ namespace Barmetler
 {
 	public class DataCache<T>
 	{
-		T data;
-		bool valid = false;
+		private T data;
+		private bool valid = false;
 
 		public void SetData(T data)
 		{

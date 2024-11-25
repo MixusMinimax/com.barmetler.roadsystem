@@ -12,15 +12,15 @@ namespace Barmetler
 	public class AsyncUpdater<T>
 	{
 		private T data;
-		readonly System.Func<T> updater;
+		private readonly System.Func<T> updater;
 
-		readonly MonoBehaviour mb;
-		readonly object dispatcherLock = new object();
-		readonly object dataLock = new object();
+		private readonly MonoBehaviour mb;
+		private readonly object dispatcherLock = new object();
+		private readonly object dataLock = new object();
 		private bool coroutineRunning = false;
 		private bool updateQueued = false;
-		readonly float interval = 0;
-		readonly Stopwatch sw = new Stopwatch();
+		private readonly float interval = 0;
+		private readonly Stopwatch sw = new Stopwatch();
 
 		public AsyncUpdater(MonoBehaviour mb, System.Func<T> updater, T initialData, float interval = 0)
 		{

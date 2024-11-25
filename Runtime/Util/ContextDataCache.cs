@@ -9,7 +9,7 @@ namespace Barmetler
 
 	public class ContextDataCache<DataType, ContextType> : IInValidatable
 	{
-		Dictionary<int, DataType> data = new Dictionary<int, DataType>();
+		private Dictionary<int, DataType> data = new Dictionary<int, DataType>();
 		public readonly List<IInValidatable> children = new List<IInValidatable>();
 
 		public void SetData(DataType data, ContextType context)

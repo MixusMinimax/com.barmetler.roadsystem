@@ -1,11 +1,12 @@
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
-	// using PointList = List<Bezier.OrientedPoint>;
+	using PointList = List<Bezier.OrientedPoint>;
 
 	public class RoadSystemNavigator : MonoBehaviour
 	{
@@ -18,21 +19,21 @@ namespace Barmetler.RoadSystem
 		public float MinDistanceToRoadToConnect = 10;
 
 		public PointList CurrentPoints { private set; get; } = new PointList();
-		private AsyncUpdater<PointList> currentPoints;
+		private AsyncUpdater<PointList> _currentPoints;
 
 		private void Awake()
 		{
-			currentPoints = new AsyncUpdater<PointList>(this, GetNewWayPoints, new PointList(), 1f / 144);
+			_currentPoints = new AsyncUpdater<PointList>(this, GetNewWayPoints, new PointList(), 1f / 144);
 		}
 
 		private void Update()
 		{
-			currentPoints.Update();
+			_currentPoints.Update();
 		}
 
 		private void FixedUpdate()
 		{
-			var points = currentPoints.GetData();
+			var points = _currentPoints.GetData();
 			if (points != CurrentPoints)
 			{
 				CurrentPoints = points;
@@ -44,7 +45,7 @@ namespace Barmetler.RoadSystem
 
 		public float GetMinDistance(out Road road, out Vector3 closestPoint, out float distanceAlongRoad)
 		{
-			if (currentRoadSystem == null)
+			if (!currentRoadSystem)
 			{
 				road = null;
 				closestPoint = Vector3.zero;
@@ -57,7 +58,7 @@ namespace Barmetler.RoadSystem
 		public float GetMinDistance(
 			out Intersection intersection, out RoadAnchor anchor, out Vector3 closestPoint, out float distanceAlongRoad)
 		{
-			if (currentRoadSystem == null)
+			if (!currentRoadSystem)
 			{
 				intersection = null;
 				anchor = null;
@@ -69,43 +70,43 @@ namespace Barmetler.RoadSystem
 				transform.position, MinDistanceYScale, out intersection, out anchor, out closestPoint, out distanceAlongRoad);
 		}
 
-		void RemovePointsBehind()
+		private void RemovePointsBehind()
 		{
 			var pos = transform.position;
 			var count = 0;
-			for (; count < CurrentPoints.Points.Count - 1; ++count)
+			for (; count < CurrentPoints.Count - 1; ++count)
 			{
 				// if next point is further away, stop (but don't stop if current point is really close)
-				var sqrDst = (CurrentPoints.Points[count].position - pos).sqrMagnitude;
+				var sqrDst = (CurrentPoints[count].position - pos).sqrMagnitude;
 				if (
-					sqrDst < (CurrentPoints.Points[count + 1].position - pos).sqrMagnitude &&
+					sqrDst < (CurrentPoints[count + 1].position - pos).sqrMagnitude &&
 					sqrDst > GraphStepSize / 2 * GraphStepSize / 2
 				) break;
 			}
 
 			if (count > 0)
 			{
-				CurrentPoints.Points.RemoveRange(0, count);
+				CurrentPoints.RemoveRange(0, count);
 			}
 		}
 
-		void RemovePointsAhead()
+		private void RemovePointsAhead()
 		{
 			var pos = Goal;
 			var count = 0;
-			for (; count < CurrentPoints.Points.Count - 1; ++count)
+			for (; count < CurrentPoints.Count - 1; ++count)
 			{
 				// if next point is further away, stop (but don't stop if current point is really close)
-				var sqrDst = (CurrentPoints.Points[CurrentPoints.Points.Count - 1 - count].position - pos).sqrMagnitude;
+				var sqrDst = (CurrentPoints[CurrentPoints.Count - 1 - count].position - pos).sqrMagnitude;
 				if (
-					sqrDst < (CurrentPoints.Points[CurrentPoints.Points.Count - 1 - count - 1].position - pos).sqrMagnitude &&
+					sqrDst < (CurrentPoints[CurrentPoints.Count - 1 - count - 1].position - pos).sqrMagnitude &&
 					sqrDst > GraphStepSize / 2 * GraphStepSize / 2
 					) break;
 			}
 
 			if (count > 0)
 			{
-				CurrentPoints.Points.RemoveRange(CurrentPoints.Points.Count - count, count);
+				CurrentPoints.RemoveRange(CurrentPoints.Count - count, count);
 			}
 		}
 
@@ -114,11 +115,17 @@ namespace Barmetler.RoadSystem
 			CurrentPoints = GetNewWayPoints();
 		}
 
-		PointList GetNewWayPoints()
+		private static readonly ProfilerMarker GetNewWayPointsPerfMarker = new ProfilerMarker("RoadSystemNavigator.cs GetNewWayPoints");
+
+		private PointList GetNewWayPoints()
 		{
+			using var marker = GetNewWayPointsPerfMarker.Auto();
 			return currentRoadSystem.FindPath(
-				transform.position, Goal, MinDistanceYScale,
-				Mathf.Max(0.1f, GraphStepSize), MinDistanceToRoadToConnect);
+				transform.position, Goal,
+				yScale: MinDistanceYScale,
+				stepSize: Mathf.Max(0.1f, GraphStepSize),
+				minDstToRoadToConnect: MinDistanceToRoadToConnect
+			);
 		}
 	}
 }

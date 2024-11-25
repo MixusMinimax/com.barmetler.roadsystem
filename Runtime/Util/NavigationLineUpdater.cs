@@ -19,7 +19,7 @@ namespace Barmetler.RoadSystem
         [SerializeField, HideInInspector]
         private LineRenderer lineRenderer;
 
-        AsyncUpdater<Vector3[]> pathPoints;
+        private AsyncUpdater<Vector3[]> _pathPoints;
 
         private void OnValidate()
         {
@@ -32,19 +32,19 @@ namespace Barmetler.RoadSystem
         }
 
         // Update is called once per frame
-        void Update()
+        private void Update()
         {
-            pathPoints ??= new AsyncUpdater<Vector3[]>(this, UpdateData, new Vector3[] { }, 1f / 144);
-            pathPoints.Update();
-            var points = pathPoints.GetData();
+            _pathPoints ??= new AsyncUpdater<Vector3[]>(this, UpdateData, new Vector3[] { }, 1f / 144);
+            _pathPoints.Update();
+            var points = _pathPoints.GetData();
             lineRenderer.positionCount = points.Length;
             lineRenderer.SetPositions(points);
             lineRenderer.widthMultiplier = LineWidth;
         }
 
-        Vector3[] UpdateData()
+        private Vector3[] UpdateData()
         {
-            var points = navigator.CurrentPoints.Points.Select(e => e.position).ToList();
+            var points = navigator.CurrentPoints.Select(e => e.position).ToList();
 
             LineUtility.Simplify(points.ToList(), Tolerance, points);
 

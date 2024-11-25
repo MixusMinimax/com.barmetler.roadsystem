@@ -3,155 +3,118 @@ using UnityEditor;
 
 namespace Barmetler.RoadSystem
 {
-	[CustomEditor(typeof(RoadSystemNavigator))]
-	public class RoadSystemNavigatorEditor : Editor
-	{
-		RoadSystemNavigator navigator;
-		RoadSystemSettings settings;
+    [CustomEditor(typeof(RoadSystemNavigator))]
+    public class RoadSystemNavigatorEditor : Editor
+    {
+        private RoadSystemNavigator navigator;
+        private RoadSystemSettings settings;
 
-		private void OnSceneGUI()
-		{
-			if (!Application.isPlaying && navigator.transform.hasChanged)
-			{
-				UpdateNavigator();
-				navigator.transform.hasChanged = false;
-			}
-			Draw();
-		}
+        private void OnSceneGUI()
+        {
+            if (!Application.isPlaying && navigator.transform.hasChanged)
+            {
+                UpdateNavigator();
+                navigator.transform.hasChanged = false;
+            }
 
-		void UpdateNavigator()
-		{
-			if (settings.AutoCalculateNavigator)
-			{
-				// try
-				// {
-				// 	navigator.CalculateWayPointsSync();
-				// } catch (System.Exception e)
-				// {
-				// 	Debug.LogError(e);
-				// }
+            Draw();
+        }
 
-				SceneView.RepaintAll();
-			}
-		}
+        private void UpdateNavigator()
+        {
+            if (!settings.AutoCalculateNavigator) return;
 
-		void Draw()
-		{
-			if (settings.DrawNavigatorDebug)
-			{
-				var path = navigator.currentRoadSystem.FindPathBurst(
-					navigator.transform.position, navigator.Goal, out var edges, out var stepsTaken);
-				if (edges != null)
-				{
-					foreach (var edge in edges)
-					{
-						Handles.color = Color.red;
-						Handles.DrawLine(edge.start, edge.end);
-					}
+            try
+            {
+                navigator.CalculateWayPointsSync();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError(e);
+            }
 
-					foreach (var edge in edges)
-					{
-						Handles.Label(Vector3.Lerp(edge.start, edge.end, 0.5f), "Cost: " + edge.cost,
-							new GUIStyle
-							{
-								normal = new GUIStyleState
-								{
-									background = Texture2D.whiteTexture,
-									textColor = Color.black
-								}
-							});
-					}
-				}
-				
-				// Debug.Log("Steps taken: " + stepsTaken);
-				
-				// var points = navigator.CurrentPoints;
-				var points = path;
+            SceneView.RepaintAll();
+        }
 
-				Vector3 position;
-				Vector3 lastPos = navigator.transform.position;
-				Handles.color = Color.yellow;
-				foreach (var point in points.Points)
-				{
-					position = point.position;
-					Handles.DrawLine(lastPos, position);
-					lastPos = position;
-				}
-				position = navigator.Goal;
-				Handles.DrawLine(lastPos, position);
+        private void Draw()
+        {
+            if (!settings.DrawNavigatorDebug) return;
 
-				{
-					float d1 = navigator.GetMinDistance(out Road _, out var p1, out _);
-					float d2 = navigator.GetMinDistance(out Intersection _, out RoadAnchor _, out var p2, out _);
-					var p = d1 < d2 ? p1 : p2;
-					Handles.SphereHandleCap(0, p, Quaternion.identity, 0.5f, EventType.Repaint);
-				}
+            var points = navigator.CurrentPoints;
 
-				if (settings.DrawNavigatorDebugPoints)
-				{
-					foreach (var point in points.Points)
-					{
-						Handles.SphereHandleCap(0, point.position, Quaternion.identity, 0.2f, EventType.Repaint);
-					}
-				}
+            Vector3 position;
+            var lastPos = navigator.transform.position;
+            Handles.color = Color.yellow;
+            foreach (var point in points)
+            {
+                position = point.position;
+                Handles.DrawLine(lastPos, position);
+                lastPos = position;
+            }
 
-				if (points.Nodes.Count > 0 && navigator.currentRoadSystem)
-				{
-					foreach (var node in points.Nodes)
-					{
-						var pos = navigator.currentRoadSystem.transform.TransformPoint(node.position);
-						Handles.Label(pos, node.nodeType.ToString(),
-							new GUIStyle { normal = new GUIStyleState { textColor = Color.red } });
-					}
-				}
-			}
-		}
+            position = navigator.Goal;
+            Handles.DrawLine(lastPos, position);
 
-		public override void OnInspectorGUI()
-		{
-			EditorGUI.BeginChangeCheck();
+            {
+                var d1 = navigator.GetMinDistance(out _, out var p1, out _);
+                var d2 = navigator.GetMinDistance(out _, out _, out var p2, out _);
+                var p = d1 < d2 ? p1 : p2;
+                Handles.SphereHandleCap(0, p, Quaternion.identity, 0.5f, EventType.Repaint);
+            }
 
-			base.OnInspectorGUI();
+            if (settings.DrawNavigatorDebugPoints)
+            {
+                foreach (var point in points)
+                {
+                    Handles.SphereHandleCap(0, point.position, Quaternion.identity, 0.2f, EventType.Repaint);
+                }
+            }
+        }
 
-			bool drawDebug = GUILayout.Toggle(settings.DrawNavigatorDebug, "Draw Navigator Debug Info");
-			if (drawDebug != settings.DrawNavigatorDebug)
-			{
-				Undo.RecordObject(settings, "Toggle Draw Navigator Debug Info");
-				settings.DrawNavigatorDebug = drawDebug;
-			}
+        public override void OnInspectorGUI()
+        {
+            EditorGUI.BeginChangeCheck();
 
-			bool drawDebugPoints = GUILayout.Toggle(settings.DrawNavigatorDebugPoints, "Draw Navigator Debug Points");
-			if (drawDebugPoints != settings.DrawNavigatorDebugPoints)
-			{
-				Undo.RecordObject(settings, "Toggle Draw Navigator Debug Points");
-				settings.DrawNavigatorDebugPoints = drawDebugPoints;
-			}
+            base.OnInspectorGUI();
 
-			bool autoCalculate = GUILayout.Toggle(settings.AutoCalculateNavigator, "Auto Calculate Navigator");
-			if (autoCalculate != settings.AutoCalculateNavigator)
-			{
-				Undo.RecordObject(settings, "Toggle Auto Calculate Navigator");
-				settings.AutoCalculateNavigator = autoCalculate;
-			}
+            var drawDebug = GUILayout.Toggle(settings.DrawNavigatorDebug, "Draw Navigator Debug Info");
+            if (drawDebug != settings.DrawNavigatorDebug)
+            {
+                Undo.RecordObject(settings, "Toggle Draw Navigator Debug Info");
+                settings.DrawNavigatorDebug = drawDebug;
+            }
 
-			if (GUILayout.Button("Calculate WayPoints"))
-			{
-				navigator.CalculateWayPointsSync();
-				SceneView.RepaintAll();
-			}
+            var drawDebugPoints = GUILayout.Toggle(settings.DrawNavigatorDebugPoints, "Draw Navigator Debug Points");
+            if (drawDebugPoints != settings.DrawNavigatorDebugPoints)
+            {
+                Undo.RecordObject(settings, "Toggle Draw Navigator Debug Points");
+                settings.DrawNavigatorDebugPoints = drawDebugPoints;
+            }
 
-			if (EditorGUI.EndChangeCheck())
-			{
-				UpdateNavigator();
-			}
-		}
+            var autoCalculate = GUILayout.Toggle(settings.AutoCalculateNavigator, "Auto Calculate Navigator");
+            if (autoCalculate != settings.AutoCalculateNavigator)
+            {
+                Undo.RecordObject(settings, "Toggle Auto Calculate Navigator");
+                settings.AutoCalculateNavigator = autoCalculate;
+            }
 
+            if (GUILayout.Button("Calculate WayPoints"))
+            {
+                navigator.CalculateWayPointsSync();
+                SceneView.RepaintAll();
+            }
 
-		private void OnEnable()
-		{
-			navigator = (RoadSystemNavigator)target;
-			settings = RoadSystemSettings.Instance;
-			UpdateNavigator();
-		}
-	}
+            if (EditorGUI.EndChangeCheck())
+            {
+                UpdateNavigator();
+            }
+        }
+
+        private void OnEnable()
+        {
+            navigator = (RoadSystemNavigator)target;
+            settings = RoadSystemSettings.Instance;
+            UpdateNavigator();
+        }
+    }
 }

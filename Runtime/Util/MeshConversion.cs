@@ -69,7 +69,8 @@ namespace Barmetler
 					isRightHanded = false
 				},
 			};
-			readonly static Dictionary<MeshOrientation, string> PresetNames = new Dictionary<MeshOrientation, string>();
+
+			private readonly static Dictionary<MeshOrientation, string> PresetNames = new Dictionary<MeshOrientation, string>();
 		}
 
 		/// <summary>

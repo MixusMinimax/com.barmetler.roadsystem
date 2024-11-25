@@ -9,11 +9,7 @@ using Util;
 
 namespace Barmetler.RoadSystem
 {
-    public class PointList
-    {
-        public List<Bezier.OrientedPoint> Points = new List<Bezier.OrientedPoint>();
-        public List<RoadSystem.Graph.Node> Nodes = new List<RoadSystem.Graph.Node>();
-    }
+    using PointList = List<Bezier.OrientedPoint>;
 
     [ExecuteAlways]
     public class RoadSystem : MonoBehaviour
@@ -164,17 +160,26 @@ namespace Barmetler.RoadSystem
         }
 
         public PointList FindPath(
+            Vector3 startPosWorld, Vector3 goalPosWorld, List<Edge> edges = null,
+            float yScale = 1, float stepSize = 1, float minDstToRoadToConnect = 10
+        ) => FindPath(
+            startPosWorld, goalPosWorld,
+            out _, edges,
+            yScale: yScale, stepSize: stepSize,
+            minDstToRoadToConnect: minDstToRoadToConnect
+        );
+
+        public PointList FindPath(
             Vector3 startPosWorld, Vector3 goalPosWorld,
+            out int stepsTaken, List<Edge> edges = null,
             float yScale = 1, float stepSize = 1, float minDstToRoadToConnect = 10)
         {
-            List<Graph.Node> nodes;
-
             var startDistRoad = GetMinDistance(
                 startPosWorld, stepSize, yScale,
                 out var startRoad, out var startPosition1, out var startDstAlongRoad1);
             var startDistIntersection = GetMinDistance(
                 startPosWorld, yScale,
-                out var _, out var startAnchor,
+                out _, out var startAnchor,
                 out var startPosition2, out var startDstAlongRoad2);
             var startUseRoad = startDistRoad < startDistIntersection;
 
@@ -183,52 +188,14 @@ namespace Barmetler.RoadSystem
                 out var goalRoad, out var goalPosition1, out var goalDstAlongRoad1);
             var goalDistIntersection = GetMinDistance(
                 goalPosWorld, yScale,
-                out var _, out var goalAnchor,
+                out _, out var goalAnchor,
                 out var goalPosition2, out var goalDstAlongRoad2);
             var goalUseRoad = goalDistRoad < goalDistIntersection;
 
+            if (!graph.NativeArrayIsCreated)
+                graph.InitNativeArray();
 
-            nodes = graph.FindPath(
-                startUseRoad ? startPosition1 : startPosition2,
-                startUseRoad ? startRoad : null,
-                startUseRoad ? null : startAnchor,
-                startUseRoad ? startDstAlongRoad1 : startDstAlongRoad2,
-                goalUseRoad ? goalPosition1 : goalPosition2,
-                goalUseRoad ? goalRoad : null,
-                goalUseRoad ? null : goalAnchor,
-                goalUseRoad ? goalDstAlongRoad1 : goalDstAlongRoad2);
-
-            return GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
-        }
-
-        public PointList FindPathBurst(
-            Vector3 startPosWorld, Vector3 goalPosWorld,
-            out List<Edge> edges, out int stepsTaken,
-            float yScale = 1, float stepSize = 1, float minDstToRoadToConnect = 10
-        )
-        {
-            List<Graph.Node> nodes;
-
-            var startDistRoad = GetMinDistance(
-                startPosWorld, stepSize, yScale,
-                out var startRoad, out var startPosition1, out var startDstAlongRoad1);
-            var startDistIntersection = GetMinDistance(
-                startPosWorld, yScale,
-                out var _, out var startAnchor,
-                out var startPosition2, out var startDstAlongRoad2);
-            var startUseRoad = startDistRoad < startDistIntersection;
-
-            var goalDistRoad = GetMinDistance(
-                goalPosWorld, stepSize, yScale,
-                out var goalRoad, out var goalPosition1, out var goalDstAlongRoad1);
-            var goalDistIntersection = GetMinDistance(
-                goalPosWorld, yScale,
-                out var _, out var goalAnchor,
-                out var goalPosition2, out var goalDstAlongRoad2);
-            var goalUseRoad = goalDistRoad < goalDistIntersection;
-
-
-            nodes = graph.FindPathBurst(
+            var nodes = graph.FindPathBurst(
                 startUseRoad ? startPosition1 : startPosition2,
                 startUseRoad ? startRoad : null,
                 startUseRoad ? null : startAnchor,
@@ -237,8 +204,8 @@ namespace Barmetler.RoadSystem
                 goalUseRoad ? goalRoad : null,
                 goalUseRoad ? null : goalAnchor,
                 goalUseRoad ? goalDstAlongRoad1 : goalDstAlongRoad2,
-                out edges,
-                out stepsTaken
+                out stepsTaken,
+                edges: edges
             );
 
             return GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
@@ -438,15 +405,11 @@ namespace Barmetler.RoadSystem
                 }
             }
 
-            return new PointList
-            {
-                Points = pathPoints,
-                Nodes = nodes
-            };
+            return pathPoints;
         }
 
         [Serializable]
-        public class Graph
+        internal class Graph
         {
             [Serializable]
             public class Node : AStar.NodeBase
@@ -522,6 +485,8 @@ namespace Barmetler.RoadSystem
 
             private TwoDimensionalNativeArray<float> _weightsNativeArray;
 
+            public bool NativeArrayIsCreated => _weightsNativeArray.IsCreated;
+
             public void InitNativeArray()
             {
                 if (_weightsNativeArray.IsCreated) _weightsNativeArray.Dispose();
@@ -535,13 +500,13 @@ namespace Barmetler.RoadSystem
                 if (_weightsNativeArray.IsCreated) _weightsNativeArray.Dispose();
             }
 
+            /// <summary>
+            /// Constructs the graph from the road system.
+            /// </summary>
             public void ConstructGraph()
             {
                 nodes = new List<Node>();
-                var count = roadSystem.intersections.Select(delegate(Intersection intersection)
-                {
-                    return 1 + intersection.AnchorPoints.Length;
-                }).Sum();
+                var count = roadSystem.intersections.Select(intersection => 1 + intersection.AnchorPoints.Length).Sum();
                 weights = new TwoDimensionalArray<float>(count, count);
 
                 for (var i = 0; i < count; ++i)
@@ -564,7 +529,7 @@ namespace Barmetler.RoadSystem
                 foreach (var road in roadSystem.roads)
                 {
                     road.OnValidate();
-                    if (road.start != null && road.end != null)
+                    if (road.start && road.end)
                     {
                         var startIndex = FindIndex(road.start, nodes);
                         var endIndex = FindIndex(road.end, nodes);
@@ -588,6 +553,10 @@ namespace Barmetler.RoadSystem
                 InitNativeArray();
             }
 
+            /// <summary>
+            /// For debugging purposes.
+            /// </summary>
+            /// <returns>All edges in the graph.</returns>
             public List<Edge> GetEdges()
             {
                 var ret = new List<Edge>();
@@ -613,187 +582,51 @@ namespace Barmetler.RoadSystem
 
             private static int FindIndex(Intersection intersection, List<Node> nodes)
             {
-                if (intersection == null) return -1;
+                if (!intersection) return -1;
                 return nodes.FindIndex(0, nodes.Count,
                     node => node.nodeType == Node.NodeType.INTERSECTION && node.intersection == intersection);
             }
 
             private static int FindIndex(RoadAnchor anchor, List<Node> nodes)
             {
-                if (anchor == null) return -1;
+                if (!anchor) return -1;
                 return nodes.FindIndex(0, nodes.Count,
                     node => node.nodeType == Node.NodeType.ANCHOR && node.anchor == anchor);
             }
 
-            public List<Node> FindPath(Vector3 startPosWorld, Road startRoad, float startDistanceAlongRoad,
-                Vector3 goalPosWorld, Road goalRoad, float goalDistanceAlongRoad)
-            {
-                return FindPath(startPosWorld, startRoad, null, startDistanceAlongRoad, goalPosWorld, goalRoad, null,
-                    goalDistanceAlongRoad);
-            }
-
-            public List<Node> FindPath(Vector3 startPosWorld, RoadAnchor startAnchor, float startDistanceAlongRoad,
-                Vector3 goalPosWorld, RoadAnchor goalAnchor, float goalDistanceAlongRoad)
-            {
-                return FindPath(startPosWorld, null, startAnchor, startDistanceAlongRoad, goalPosWorld, null,
-                    goalAnchor, goalDistanceAlongRoad);
-            }
-
-            public List<Node> FindPath(Vector3 startPosWorld, Road startRoad, RoadAnchor startAnchor,
-                float startDistanceAlongRoad,
-                Vector3 goalPosWorld, Road goalRoad, RoadAnchor goalAnchor, float goalDistanceAlongRoad)
-            {
-                var nodes = this.nodes.ToList();
-
-                if (goalRoad != null)
-                {
-                    nodes.Insert(0, new Node(goalPosWorld, goalRoad, goalDistanceAlongRoad, roadSystem));
-                }
-                else
-                {
-                    nodes.Insert(0, new Node(goalPosWorld, goalAnchor, goalDistanceAlongRoad, roadSystem));
-                }
-
-                if (startRoad != null)
-                {
-                    nodes.Insert(0, new Node(startPosWorld, startRoad, startDistanceAlongRoad, roadSystem));
-                }
-                else
-                {
-                    nodes.Insert(0, new Node(startPosWorld, startAnchor, startDistanceAlongRoad, roadSystem));
-                }
-
-                var weights = new TwoDimensionalArray<float>(nodes.Count, nodes.Count);
-                this.weights.CopyInto(float.PositiveInfinity, weights, new Vector2Int(2, 2), Vector2Int.zero);
-
-                var startIndex = 0;
-                var goalIndex = 1;
-                var startPosLocal = nodes[startIndex].position;
-                var goalPosLocal = nodes[goalIndex].position;
-
-                for (var i = 0; i < weights.Width; ++i)
-                for (var j = 0; j < 2; ++j)
-                    weights[i, j == 0 ? startIndex : goalIndex] = weights[j == 0 ? startIndex : goalIndex, i] =
-                        (nodes[j == 0 ? startIndex : goalIndex].position - nodes[i].position).magnitude *
-                        roadSystem.DistanceFactor;
-
-                if (startRoad == goalRoad && startRoad != null)
-                {
-                    weights[startIndex, goalIndex] = weights[goalIndex, startIndex] =
-                        Mathf.Abs(startDistanceAlongRoad - goalDistanceAlongRoad);
-
-                    var roadStartIndex = FindIndex(startRoad.start, nodes);
-                    var roadEndIndex = FindIndex(startRoad.end, nodes);
-
-                    if (startDistanceAlongRoad > goalDistanceAlongRoad)
-                    {
-                        // start to roadEnd, goal to roadStart
-                        if (roadEndIndex != -1)
-                            weights[startIndex, roadEndIndex] = weights[roadEndIndex, startIndex] =
-                                startRoad.GetLength() - startDistanceAlongRoad;
-
-                        if (roadStartIndex != -1)
-                            weights[goalIndex, roadStartIndex] = weights[roadStartIndex, goalIndex] =
-                                goalDistanceAlongRoad;
-                    }
-                    else
-                    {
-                        // goal to roadEnd, start to roadStart
-                        if (roadEndIndex != -1)
-                            weights[goalIndex, roadEndIndex] = weights[roadEndIndex, goalIndex] =
-                                startRoad.GetLength() - goalDistanceAlongRoad;
-
-                        if (roadStartIndex != -1)
-                            weights[startIndex, roadStartIndex] = weights[roadStartIndex, startIndex] =
-                                startDistanceAlongRoad;
-                    }
-                }
-                else if (startAnchor == goalAnchor && startAnchor != null)
-                {
-                    weights[startIndex, goalIndex] =
-                        weights[goalIndex, startIndex] = (startPosLocal - goalPosLocal).magnitude;
-
-                    var anchorIndex = FindIndex(startAnchor, nodes);
-                    var intersectionIndex = FindIndex(startAnchor.Intersection, nodes);
-                    var length = (startAnchor.transform.position - startAnchor.Intersection.transform.position)
-                        .magnitude;
-
-                    if (startDistanceAlongRoad > goalDistanceAlongRoad)
-                    {
-                        weights[startIndex, anchorIndex] =
-                            weights[anchorIndex, startIndex] = length - startDistanceAlongRoad;
-                        weights[goalIndex, intersectionIndex] =
-                            weights[intersectionIndex, goalIndex] = goalDistanceAlongRoad;
-                    }
-                    else
-                    {
-                        weights[startIndex, anchorIndex] = weights[anchorIndex, startIndex] = startDistanceAlongRoad;
-                        weights[goalIndex, intersectionIndex] =
-                            weights[intersectionIndex, goalIndex] = length - goalDistanceAlongRoad;
-                    }
-                }
-                else
-                {
-                    // connect start and end to roadEnds
-                    for (var i = 0; i < 2; ++i)
-                    {
-                        var road = (i == 0 ? startRoad : goalRoad);
-                        var anchor = (i == 0 ? startAnchor : goalAnchor);
-                        var pointIndex = i == 0 ? startIndex : goalIndex;
-                        var distanceAlongRoad = i == 0 ? startDistanceAlongRoad : goalDistanceAlongRoad;
-
-                        if (road != null)
-                        {
-                            var roadStartIndex = FindIndex(road.start, nodes);
-                            var roadEndIndex = FindIndex(road.end, nodes);
-
-                            if (roadEndIndex != -1)
-                                weights[pointIndex, roadEndIndex] = weights[roadEndIndex, pointIndex] =
-                                    road.GetLength() - distanceAlongRoad;
-
-                            if (roadStartIndex != -1)
-                                weights[pointIndex, roadStartIndex] = weights[roadStartIndex, pointIndex] =
-                                    distanceAlongRoad;
-                        }
-                        else if (anchor != null)
-                        {
-                            var intersectionIndex = FindIndex(anchor.Intersection, nodes);
-                            var anchorIndex = FindIndex(anchor, nodes);
-                            var length = (anchor.transform.position - anchor.Intersection.transform.position).magnitude;
-
-                            weights[intersectionIndex, pointIndex] =
-                                weights[pointIndex, intersectionIndex] = distanceAlongRoad;
-                            weights[anchorIndex, pointIndex] =
-                                weights[pointIndex, anchorIndex] = length - distanceAlongRoad;
-                        }
-                    }
-                }
-
-                // PathFinding
-
-                // float DijkstraHeuristic(Node a, Node b) { return 0; }
-
-                var path = AStar.FindShortestPath(nodes, weights, nodes[startIndex],
-                    nodes[goalIndex] /*, DijkstraHeuristic*/);
-
-                return path;
-            }
-
+            /// <summary>
+            /// Find the shortest path from one point to another in the road system. This burst version is about 3x as
+            /// fast as the non-burst version.
+            /// </summary>
+            /// <param name="startPosWorld">World position of the start point.</param>
+            /// <param name="startRoad">Road the start point is on, or null if it is on an intersection.</param>
+            /// <param name="startAnchor">Anchor the start point is on, or null if it is on a road.</param>
+            /// <param name="startDistanceAlongRoad">Distance along the road or anchor the start point is at.</param>
+            /// <param name="goalPosWorld">World position of the goal point.</param>
+            /// <param name="goalRoad">Road the goal point is on, or null if it is on an intersection.</param>
+            /// <param name="goalAnchor">Anchor the goal point is on, or null if it is on a road.</param>
+            /// <param name="goalDistanceAlongRoad">Distance along the road or anchor the goal point is at.</param>
+            /// <param name="stepsTaken"></param>
+            /// <param name="edges">May be null. If not null, will be populated with the edges in the path.
+            /// </param>
+            /// <returns></returns>
+            /// <exception cref="InvalidOperationException"></exception>
+            /// <exception cref="ArgumentException"></exception>
             public List<Node> FindPathBurst(
                 Vector3 startPosWorld, Road startRoad, RoadAnchor startAnchor, float startDistanceAlongRoad,
                 Vector3 goalPosWorld, Road goalRoad, RoadAnchor goalAnchor, float goalDistanceAlongRoad,
-                out List<Edge> edges, out int stepsTaken)
+                out int stepsTaken, List<Edge> edges = null)
             {
+                if (startRoad == null && startAnchor == null)
+                    throw new ArgumentException("Start must be either a road or an anchor.");
+                if (goalRoad == null && goalAnchor == null)
+                    throw new ArgumentException("Goal must be either a road or an anchor.");
+
                 if (!_weightsNativeArray.IsCreated)
                     throw new InvalidOperationException("NativeArray not created.");
 
                 if (_weightsNativeArray.Width != nodes.Count || _weightsNativeArray.Height != nodes.Count)
                     throw new InvalidOperationException("NativeArray size does not match nodes size.");
-
-                if (startRoad == null && startAnchor == null)
-                    throw new ArgumentException("Start must be either a road or an anchor.");
-                if (goalRoad == null && goalAnchor == null)
-                    throw new ArgumentException("Goal must be either a road or an anchor.");
 
                 var nodesList = nodes.ToList();
 
@@ -809,7 +642,7 @@ namespace Barmetler.RoadSystem
 
                 const int startIndex = 0;
                 const int goalIndex = 1;
-                
+
                 var startRoadStartIndex = startRoad != null ? FindIndex(startRoad.start, nodesList) : -1;
                 var startRoadEndIndex = startRoad != null ? FindIndex(startRoad.end, nodesList) : -1;
                 var goalRoadStartIndex = goalRoad != null ? FindIndex(goalRoad.start, nodesList) : -1;
@@ -818,7 +651,7 @@ namespace Barmetler.RoadSystem
                 var goalAnchorIndex = goalAnchor != null ? FindIndex(goalAnchor, nodesList) : -1;
                 var startIntersectionIndex = startAnchor != null ? FindIndex(startAnchor.Intersection, nodesList) : -1;
                 var goalIntersectionIndex = goalAnchor != null ? FindIndex(goalAnchor.Intersection, nodesList) : -1;
-                
+
                 // if start or goal is coincident with an existing node, A* will fail, so we just move them a bit.
                 // This will only affect the search, not the rendering of the path.
                 for (var i = 0; i < 2; ++i)
@@ -876,7 +709,8 @@ namespace Barmetler.RoadSystem
                         if (intersectionIndex != -1)
                             weightsWithStartAndGoal[intersectionIndex, nodeIndex] =
                                 weightsWithStartAndGoal[nodeIndex, intersectionIndex] =
-                                    Vector3.Distance(nodesList[intersectionIndex].position, nodesList[nodeIndex].position);
+                                    Vector3.Distance(nodesList[intersectionIndex].position,
+                                        nodesList[nodeIndex].position);
                     }
                 }
 
@@ -894,19 +728,23 @@ namespace Barmetler.RoadSystem
                         Vector3.Distance(nodesList[startIndex].position, nodesList[goalIndex].position);
                 }
 
-                edges = new List<Edge>();
-
-                for (var i = 0; i < nodesList.Count; ++i)
-                for (var j = 0; j < nodesList.Count; ++j)
+                // For debugging purposes.
+                if (edges != null)
                 {
-                    if (!(weightsWithStartAndGoal[i, j] < 5e3) || !(weightsWithStartAndGoal[i, j] > 1e-3)) continue;
-                    var edge = new Edge
+                    edges.Clear();
+
+                    for (var i = 0; i < nodesList.Count; ++i)
+                    for (var j = 0; j < nodesList.Count; ++j)
                     {
-                        start = roadSystem.transform.TransformPoint(nodesList[i].position),
-                        end = roadSystem.transform.TransformPoint(nodesList[j].position),
-                        cost = weightsWithStartAndGoal[i, j]
-                    };
-                    edges.Add(edge);
+                        if (!(weightsWithStartAndGoal[i, j] < 5e3) || !(weightsWithStartAndGoal[i, j] > 1e-3)) continue;
+                        var edge = new Edge
+                        {
+                            start = roadSystem.transform.TransformPoint(nodesList[i].position),
+                            end = roadSystem.transform.TransformPoint(nodesList[j].position),
+                            cost = weightsWithStartAndGoal[i, j]
+                        };
+                        edges.Add(edge);
+                    }
                 }
 
                 var nativeNodes = new NativeArray<float3>(nodesList.Count, Allocator.TempJob);
