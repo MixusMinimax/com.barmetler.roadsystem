@@ -12,7 +12,6 @@ namespace Barmetler.RoadSystem
 {
     public static class Bezier
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 EvaluateQuadratic(Vector3 a, Vector3 b, Vector3 c, float t)
         {
             var p0 = Vector3.Lerp(a, b, t);
@@ -20,7 +19,6 @@ namespace Barmetler.RoadSystem
             return Vector3.Lerp(p0, p1, t);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 EvaluateCubic(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t)
         {
             // Bernstein polynomials
@@ -30,13 +28,11 @@ namespace Barmetler.RoadSystem
                    d * (t * t * t);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 DeriveQuadratic(Vector3 a, Vector3 b, Vector3 c, float t)
         {
             return Vector3.Lerp(2 * (b - a), 2 * (c - b), t);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 DeriveCubic(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t)
         {
             return EvaluateQuadratic(3 * (b - a), 3 * (c - b), 3 * (d - c), t);
@@ -74,6 +70,22 @@ namespace Barmetler.RoadSystem
             var bccd = Vector3.Lerp(bc, cd, t);
             var abbcBccd = Vector3.Lerp(abbc, bccd, t);
             return new[] { a, ab, abbc, abbcBccd, bccd, cd, d };
+        }
+
+        // TODO: not accurate enough, but better than nothing
+        public static Vector3[] UnSubdivideCubic(
+            Vector3 p0, Vector3 h01,
+            Vector3 h10, Vector3 p1, Vector3 h11,
+            Vector3 h20, Vector3 p2
+        )
+        {
+            return new[]
+            {
+                p0,
+                p0 + Vector3.Distance(p0, h10) / Vector3.Distance(p0, h01) * (h01 - p0),
+                p2 + Vector3.Distance(p2, h11) / Vector3.Distance(p2, h20) * (h20 - p2),
+                p2
+            };
         }
 
         /// <summary>

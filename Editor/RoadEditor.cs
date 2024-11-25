@@ -417,6 +417,7 @@ namespace Barmetler.RoadSystem
 					{
 						Undo.RecordObject(road, "Insert Segment");
 						road.InsertSegment(segmentIndex, t, normal);
+						selectedAnchorPoint = segmentIndex * 3 + 3;
 					}
 				}
 

@@ -231,6 +231,7 @@ namespace Barmetler.RoadSystem
 
 		public void DeleteAnchor(int anchorIndex)
 		{
+			if (anchorIndex % 3 != 0) return;
 			if (NumSegments > 1)
 			{
 				if (anchorIndex == 0 && start == null)
@@ -245,8 +246,18 @@ namespace Barmetler.RoadSystem
 				}
 				else if (anchorIndex > 0 && anchorIndex < NumPoints - 1)
 				{
+					normals.RemoveAt(anchorIndex / 3);
+					var unSubdivided = Bezier.UnSubdivideCubic(
+						points[anchorIndex - 3],
+						points[anchorIndex - 2],
+						points[anchorIndex - 1],
+						points[anchorIndex],
+						points[anchorIndex + 1],
+						points[anchorIndex + 2],
+						points[anchorIndex + 3]);
 					points.RemoveRange(anchorIndex - 1, 3);
-					normals.RemoveRange(anchorIndex / 3, 1);
+					points[anchorIndex - 2] = unSubdivided[1];
+					points[anchorIndex - 1] = unSubdivided[2];
 				}
 			}
 
