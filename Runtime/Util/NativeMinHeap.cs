@@ -97,6 +97,15 @@ namespace Util
             if (priority < oldPriority) SiftUp(i);
             else SiftDown(i);
         }
+        
+        public bool Contains(int index) => _indices[index] != -1;
+        
+        [WriteAccessRequired]
+        public void InsertOrUpdate(int index, float priority)
+        {
+            if (Contains(index)) Update(index, priority);
+            else Insert(index, priority);
+        }
 
         [WriteAccessRequired]
         public void Dispose()
@@ -110,18 +119,38 @@ namespace Util
         {
             _nodes.Dispose(inputDeps);
             _indices.Dispose(inputDeps);
-            Count = 0;
         }
 
         [NotBurstCompatible]
         public int[] ToArray()
         {
+            var copy = new NativeMinHeap(_nodes.Length, Allocator.Temp);
+            Copy(in this, ref copy);
             var result = new int[Count];
-            for (var i = 0; i < result.Length; ++i)
-            {
-                result[i] = ExtractMin();
-            }
+            for (var i = 0; i < result.Length; ++i) result[i] = copy.ExtractMin();
+            copy.Dispose();
             return result;
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        private static void CheckCopyLengths(int sourceLength, int destinationLength)
+        {
+            if (sourceLength != destinationLength)
+                throw new System.InvalidOperationException("source and destination length must be the same");
+        }
+
+        [WriteAccessRequired]
+        public void CopyFrom(in NativeMinHeap other) => Copy(in other, ref this);
+
+        public void CopyTo(ref NativeMinHeap other) => Copy(in this, ref other);
+
+        public static void Copy(in NativeMinHeap source, ref NativeMinHeap destination)
+        {
+            CheckCopyLengths(source._nodes.Length, destination._nodes.Length);
+            CheckCopyLengths(source._indices.Length, destination._indices.Length);
+            destination.Count = source.Count;
+            NativeArray<Node>.Copy(source._nodes, destination._nodes);
+            NativeArray<int>.Copy(source._indices, destination._indices);
         }
 
         private void Swap(int a, int b)

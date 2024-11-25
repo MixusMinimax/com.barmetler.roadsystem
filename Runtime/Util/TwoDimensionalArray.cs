@@ -142,6 +142,10 @@ namespace Barmetler
 			get => this[v.x, v.y];
 			set => this[v.x, v.y] = value;
 		}
+		
+		public T[] ToArray() => array.ToArray();
+		
+		public T[] DirectArray => array;
 
 		public T[,] ToMultiArray()
 		{

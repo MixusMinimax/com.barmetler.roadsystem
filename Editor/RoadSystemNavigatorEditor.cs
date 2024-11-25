@@ -23,13 +23,13 @@ namespace Barmetler.RoadSystem
 		{
 			if (settings.AutoCalculateNavigator)
 			{
-				try
-				{
-					navigator.CalculateWayPointsSync();
-				} catch (System.Exception e)
-				{
-					Debug.LogError(e);
-				}
+				// try
+				// {
+				// 	navigator.CalculateWayPointsSync();
+				// } catch (System.Exception e)
+				// {
+				// 	Debug.LogError(e);
+				// }
 
 				SceneView.RepaintAll();
 			}
@@ -39,7 +39,34 @@ namespace Barmetler.RoadSystem
 		{
 			if (settings.DrawNavigatorDebug)
 			{
-				var points = navigator.CurrentPoints;
+				var path = navigator.currentRoadSystem.FindPathBurst(
+					navigator.transform.position, navigator.Goal, out var edges, out var stepsTaken);
+				if (edges != null)
+				{
+					foreach (var edge in edges)
+					{
+						Handles.color = Color.red;
+						Handles.DrawLine(edge.start, edge.end);
+					}
+
+					foreach (var edge in edges)
+					{
+						Handles.Label(Vector3.Lerp(edge.start, edge.end, 0.5f), "Cost: " + edge.cost,
+							new GUIStyle
+							{
+								normal = new GUIStyleState
+								{
+									background = Texture2D.whiteTexture,
+									textColor = Color.black
+								}
+							});
+					}
+				}
+				
+				// Debug.Log("Steps taken: " + stepsTaken);
+				
+				// var points = navigator.CurrentPoints;
+				var points = path;
 
 				Vector3 position;
 				Vector3 lastPos = navigator.transform.position;

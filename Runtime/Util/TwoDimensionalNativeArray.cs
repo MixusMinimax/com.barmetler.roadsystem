@@ -63,6 +63,9 @@ namespace Util
 
         [NotBurstCompatible]
         public T[] ToArray() => _data.ToArray();
+        
+        [NotBurstCompatible]
+        public void CopyFrom(T[] array) => _data.CopyFrom(array);
     }
 
     internal sealed class TwoDimensionalNativeArrayDebugView<T> where T : struct
@@ -111,17 +114,18 @@ namespace Util
 
         public bool IsCreated => _data.IsCreated;
 
+        /// <summary>
+        /// Does not dispose _data
+        /// </summary>
         [WriteAccessRequired]
         public void Dispose()
         {
-            _data.Dispose();
             _horizontal.Dispose();
             _vertical.Dispose();
         }
 
         public void Dispose(JobHandle inputDeps)
         {
-            _data.Dispose(inputDeps);
             _horizontal.Dispose(inputDeps);
             _vertical.Dispose(inputDeps);
         }

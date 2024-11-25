@@ -168,8 +168,9 @@ namespace Tests.Runtime
         [Test]
         public void T060_Extended_ShouldPlaceDataCorrectly()
         {
+            TwoDimensionalNativeArray<int> inner;
             var arr = new ExtendedTwoDimensionalNativeArray<int>(
-                new TwoDimensionalNativeArray<int>(5, 6, Allocator.Temp),
+                inner = new TwoDimensionalNativeArray<int>(5, 6, Allocator.Temp),
                 startX: 2, startY: 1, width: 8, height: 8,
                 Allocator.Temp
             );
@@ -185,6 +186,7 @@ namespace Tests.Runtime
             finally
             {
                 arr.Dispose();
+                inner.Dispose();
             }
         }
 
@@ -221,6 +223,7 @@ namespace Tests.Runtime
             finally
             {
                 outer.Dispose();
+                inner.Dispose();
             }
         }
     }
