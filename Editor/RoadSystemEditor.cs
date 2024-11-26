@@ -24,6 +24,7 @@ namespace Barmetler.RoadSystem
 				style.normal.textColor = Color.magenta;
 				foreach (var road in roadSystem.Roads)
 				{
+					if (!road) continue;
 					foreach (int segment in Enumerable.Range(0,road.NumSegments))
 					{
 						var points = road.GetPointsInSegment(segment).Select(e=>road.transform.TransformPoint(e)).ToArray();
