@@ -211,9 +211,10 @@ namespace Barmetler.RoadSystem
             return GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
         }
 
-        private PointList GenerateSmoothPath(
+        private static PointList GenerateSmoothPath(
             Vector3 startPosWorld, Vector3 goalPosWorld, List<Graph.Node> nodes,
-            float stepSize = 1, float minDstToRoadToConnect = 10, bool onlyNodes = false)
+            float stepSize = 1, float minDstToRoadToConnect = 10, bool onlyNodes = false,
+            bool subdivideStraightLines = false)
         {
             var pathPoints = new PointList();
 
@@ -333,7 +334,7 @@ namespace Barmetler.RoadSystem
                         var norm2 = nextNode.anchor?.transform.up ?? nextNode.intersection?.transform.up ?? Vector3.up;
                         var dist = Vector3.Distance(pos1, pos2);
                         var n = (pos2 - pos1).normalized;
-                        var nPoints = Mathf.CeilToInt(dist / stepSize) + 1;
+                        var nPoints = subdivideStraightLines ? Mathf.CeilToInt(dist / stepSize) + 1 : 2;
                         for (var i = pathPoints.Count > 0 ? 1 : 0; i < nPoints; ++i)
                         {
                             var t = Mathf.Lerp(0, dist, (float)i / Mathf.Max(1, nPoints - 1));
