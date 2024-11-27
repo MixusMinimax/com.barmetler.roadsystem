@@ -44,12 +44,13 @@ namespace Barmetler.RoadSystem
 
         private Vector3[] UpdateData()
         {
+            if (!navigator) return new Vector3[] { };
             var points = navigator.CurrentPoints.Select(e => e.position).ToList();
 
             LineUtility.Simplify(points.ToList(), Tolerance, points);
 
             return points.Select(e =>
-                Vector3.Scale(e, Vector3.forward + Vector3.right) + Vector3.up * 50
+                Vector3.Scale(e, Vector3.forward + Vector3.right) + Vector3.up * 100
             ).ToArray();
         }
     }

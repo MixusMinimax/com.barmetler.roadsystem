@@ -188,16 +188,14 @@ namespace Barmetler.RoadSystem
                     this.p2 = p2;
                     this.p3 = p3;
                 }
-
-                public float3 this[int i] =>
-                    i switch
-                    {
-                        0 => p0,
-                        1 => p1,
-                        2 => p2,
-                        3 => p3,
-                        _ => throw new ArgumentOutOfRangeException()
-                    };
+                public float3 this[int i] => i switch
+                {
+                    0 => p0,
+                    1 => p1,
+                    2 => p2,
+                    3 => p3,
+                    _ => throw new ArgumentOutOfRangeException()
+                };
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

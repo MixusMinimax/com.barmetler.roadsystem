@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Barmetler
@@ -74,7 +75,7 @@ namespace Barmetler
 			sw.Restart();
 			var newData = updater();
 			sw.Stop();
-			float secondsToWait = (float)(interval - sw.ElapsedMilliseconds / 1e6);
+			var secondsToWait = (float)(interval - sw.ElapsedMilliseconds / 1e6);
 			if (secondsToWait > 0)
 				yield return new WaitForSeconds(secondsToWait);
 

@@ -1,11 +1,11 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
-using System.Runtime.Serialization;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using Util;
+using NodeType = Barmetler.RoadSystem.RoadSystem.Graph.Node.NodeType;
 
 namespace Barmetler.RoadSystem
 {
@@ -213,169 +213,135 @@ namespace Barmetler.RoadSystem
 
         private PointList GenerateSmoothPath(
             Vector3 startPosWorld, Vector3 goalPosWorld, List<Graph.Node> nodes,
-            float stepSize = 1, float minDstToRoadToConnect = 10)
+            float stepSize = 1, float minDstToRoadToConnect = 10, bool onlyNodes = false)
         {
-            var pathPoints = new List<Bezier.OrientedPoint>();
+            var pathPoints = new PointList();
 
-            if (nodes.Count == 2 && nodes[0].road)
+            if (onlyNodes)
             {
-                var a = Mathf.Min(nodes[0].distanceAlongRoad, nodes[1].distanceAlongRoad);
-                var b = Mathf.Max(nodes[0].distanceAlongRoad, nodes[1].distanceAlongRoad);
-                var pts = nodes[0].road.GetEvenlySpacedPoints(stepSize);
-                float d = 0;
-                for (var i = 0; i < pts.Length; ++i)
-                {
-                    if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
-                    if (d >= a && d <= b) pathPoints.Add(pts[i].ToWorldSpace(nodes[0].road.transform));
-                }
-
-                if (nodes[0].distanceAlongRoad > nodes[1].distanceAlongRoad) pathPoints.Reverse();
+                pathPoints.AddRange(nodes.Select(node =>
+                    new Bezier.OrientedPoint(node.GetWorldPosition(), Vector3.forward, Vector3.up)));
+                return pathPoints;
             }
-            else if (nodes.Count == 2 && nodes[0].anchor)
+
+            for (var nodeIndex = 0; nodeIndex < nodes.Count - 1; ++nodeIndex)
             {
-                var a = nodes[0].distanceAlongRoad;
-                var b = nodes[1].distanceAlongRoad;
-                var intersection = nodes[0].anchor.Intersection.transform.position;
-                var n = (nodes[0].anchor.transform.position - intersection).normalized;
-                var nPoints = Mathf.CeilToInt(Mathf.Abs(b - a) / stepSize);
-                if (nPoints == 1) ++nPoints;
-                for (var i = 0; i < nPoints; ++i)
+                var node = nodes[nodeIndex];
+                var nextNode = nodes[nodeIndex + 1];
+                if (!node.roadSystem)
+                    throw new InvalidOperationException($"nodes contains uninitialized node at index {nodeIndex}.");
+                if (!nextNode.roadSystem)
+                    throw new InvalidOperationException($"nodes contains uninitialized node at index {nodeIndex + 1}.");
+
+                switch (node.nodeType, nextNode.nodeType)
                 {
-                    var t = Mathf.Lerp(a, b, (float)i / Mathf.Max(1, nPoints - 1));
-                    pathPoints.Add(new Bezier.OrientedPoint(intersection + t * n, n,
-                        nodes[0].anchor.Intersection.transform.up));
-                }
-            }
-            else
-            {
-                var count = nodes.Count;
-                for (var wpt = 0; wpt < count; ++wpt)
-                {
-                    if (wpt == 0 && nodes[wpt].road != null) // Start Road Section
+                    // nodes on the same road
+                    case (NodeType.ENTRY_EXIT, NodeType.ENTRY_EXIT) when node.road && node.road == nextNode.road:
                     {
-                        var dst = nodes[0].distanceAlongRoad;
-                        var reverse = nodes[1].anchor == nodes[0].road.start;
-                        var pts = nodes[0].road.GetEvenlySpacedPoints(stepSize);
-                        float d = 0;
-                        for (var i = 0; i < pts.Length; ++i)
+                        var from = Mathf.Min(node.distanceAlongRoad, nextNode.distanceAlongRoad);
+                        var to = Mathf.Max(node.distanceAlongRoad, nextNode.distanceAlongRoad);
+                        var roadPoints = node.road.GetEvenlySpacedPoints(stepSize);
+                        var dist = 0f;
+                        var pathPointsCount = pathPoints.Count;
+                        for (var i = 0; i < roadPoints.Length; ++i)
                         {
-                            if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
-                            if (!reverse && d >= dst)
-                                pathPoints.Add(pts[i].ToWorldSpace(nodes[0].road.transform));
-                            else if (reverse && d <= dst)
-                                pathPoints.Insert(0, pts[i].ToWorldSpace(nodes[0].road.transform));
+                            if (i > 0)
+                                dist += Vector3.Distance(roadPoints[i - 1].position, roadPoints[i].position);
+                            if (dist > to) break;
+                            if (dist >= from)
+                                pathPoints.Add(roadPoints[i].ToWorldSpace(node.road.transform));
                         }
 
-                        pathPoints.Insert(0, new Bezier.OrientedPoint(
-                            nodes[wpt].GetWorldPosition(), pathPoints[0].forward, pathPoints[0].normal));
-                    }
-                    else if (wpt == 0 && nodes[wpt].anchor != null) // Start Intersection Section
-                    {
-                        var a = nodes[wpt].position;
-                        var b = nodes[wpt + 1].position;
-                        var l = (b - a).magnitude;
-                        var n = (b - a).normalized;
-                        var amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
-                        var up1 = nodes[wpt].anchor.transform.up;
-                        var up2 = nodes[wpt + 1].anchor?.transform?.up ?? nodes[wpt + 1].intersection.transform.up;
-                        for (var i = 0; i <= amount; ++i)
+                        if (pathPoints.Count > pathPointsCount)
                         {
-                            var f = (float)i / amount;
-                            pathPoints.Add(
-                                new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
-                                    .ToWorldSpace(transform));
-                        }
-                    }
-                    else if (wpt == count - 1 && nodes[wpt].road != null) // End Road Section
-                    {
-                        var dst = nodes[wpt].distanceAlongRoad;
-                        var reverse = nodes[wpt - 1].anchor == nodes[wpt].road.end;
-                        var pts = nodes[wpt].road.GetEvenlySpacedPoints(stepSize);
-                        float d = 0;
-                        var insertAt = pathPoints.Count;
-                        for (var i = 0; i < pts.Length; ++i)
-                        {
-                            if (i > 0) d += (pts[i].position - pts[i - 1].position).magnitude;
-                            if (!reverse && d <= dst)
-                                pathPoints.Add(pts[i].ToWorldSpace(nodes[wpt].road.transform));
-                            else if (reverse && d >= dst)
-                                pathPoints.Insert(insertAt, pts[i].ToWorldSpace(nodes[wpt].road.transform));
-                        }
-
-                        pathPoints.Add(
-                            new Bezier.OrientedPoint(
-                                nodes[wpt].GetWorldPosition(),
-                                pathPoints[pathPoints.Count - 1].forward,
+                            if (node.distanceAlongRoad > nextNode.distanceAlongRoad)
+                                pathPoints.Reverse(pathPointsCount, pathPoints.Count - pathPointsCount);
+                            pathPoints.Insert(pathPointsCount, new Bezier.OrientedPoint(
+                                node.GetWorldPosition(), pathPoints[pathPointsCount].forward,
+                                pathPoints[pathPointsCount].normal));
+                            pathPoints.Add(new Bezier.OrientedPoint(
+                                nextNode.GetWorldPosition(), pathPoints[pathPoints.Count - 1].forward,
                                 pathPoints[pathPoints.Count - 1].normal));
-                    }
-                    else if (wpt == count - 1 && nodes[wpt].anchor != null) // End Intersection Section
-                    {
-                        var a = nodes[wpt - 1].position;
-                        var b = nodes[wpt].position;
-                        var l = (b - a).magnitude;
-                        var n = (b - a).normalized;
-                        var amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
-                        var up1 = nodes[wpt - 1].anchor?.transform?.up ?? nodes[wpt - 1].intersection.transform.up;
-                        var up2 = nodes[wpt].anchor.transform.up;
-                        for (var i = 1; i <= amount; ++i)
-                        {
-                            var f = (float)i / amount;
-                            pathPoints.Add(
-                                new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
-                                    .ToWorldSpace(transform));
                         }
-                    }
-                    else if (
-                        nodes[wpt].nodeType == Graph.Node.NodeType.ANCHOR &&
-                        nodes[wpt + 1].nodeType == Graph.Node.NodeType.ANCHOR)
-                    {
-                        var a = nodes[wpt].anchor;
-                        var b = nodes[wpt].anchor;
-                        var road = a.GetConnectedRoad();
-                        if (road)
-                        {
-                            var reverse = road.end == a;
-                            var insertAt = pathPoints.Count;
-                            var pts = road.GetEvenlySpacedPoints(stepSize);
 
-                            for (var i = 0; i < pts.Length; ++i)
-                            {
-                                if (!reverse)
-                                    pathPoints.Add(pts[i].ToWorldSpace(road.transform));
-                                else
-                                    pathPoints.Insert(insertAt, pts[i].ToWorldSpace(road.transform));
-                            }
-                        }
-                        else
-                        {
-                            pathPoints.Add(new Bezier.OrientedPoint(a.transform.position, a.transform.forward,
-                                a.transform.up));
-                            pathPoints.Add(new Bezier.OrientedPoint(b.transform.position, -b.transform.forward,
-                                b.transform.up));
-                        }
+                        break;
                     }
-                    else if (
-                        nodes[wpt].nodeType == Graph.Node.NodeType.ANCHOR &&
-                        nodes[wpt + 1].nodeType == Graph.Node.NodeType.INTERSECTION ||
-                        nodes[wpt].nodeType == Graph.Node.NodeType.INTERSECTION &&
-                        nodes[wpt + 1].nodeType == Graph.Node.NodeType.ANCHOR)
+
+                    case (NodeType.ANCHOR, NodeType.ANCHOR)
+                        when node.anchor && nextNode.anchor && node.anchor != nextNode.anchor &&
+                             node.anchor.GetConnectedRoad() &&
+                             node.anchor.GetConnectedRoad() == nextNode.anchor.GetConnectedRoad():
                     {
-                        var a = nodes[wpt].position;
-                        var b = nodes[wpt + 1].position;
-                        var l = (b - a).magnitude;
-                        var n = (b - a).normalized;
-                        var amount = Mathf.Max(2, Mathf.RoundToInt(l / stepSize));
-                        var up1 = nodes[wpt].anchor?.transform?.up ?? nodes[wpt].intersection.transform.up;
-                        var up2 = nodes[wpt + 1].anchor?.transform?.up ?? nodes[wpt + 1].intersection.transform.up;
-                        for (var i = 1;
-                             i <= amount - (nodes[wpt].nodeType == Graph.Node.NodeType.INTERSECTION ? 1 : 0);
-                             ++i)
+                        var road = node.anchor.GetConnectedRoad(out var forward);
+                        var roadPoints = road.GetEvenlySpacedPoints(stepSize);
+                        // the start point should already be on the path if it's not the first node
+                        pathPoints.AddRange(
+                            (forward ? roadPoints : roadPoints.Reverse())
+                            .Select(point => point.ToWorldSpace(road.transform))
+                            .Skip(pathPoints.Count > 0 ? 1 : 0));
+                        break;
+                    }
+
+                    case (NodeType.ENTRY_EXIT, NodeType.ANCHOR)
+                        when node.road && nextNode.anchor && node.road == nextNode.anchor.GetConnectedRoad():
+                    case (NodeType.ANCHOR, NodeType.ENTRY_EXIT)
+                        when node.anchor && nextNode.road && node.anchor.GetConnectedRoad() == nextNode.road:
+                    {
+                        // current node is on the road
+                        var isStart = node.nodeType == NodeType.ENTRY_EXIT;
+                        var road = isStart ? node.road : nextNode.road;
+                        var anchor = isStart ? nextNode.anchor : node.anchor;
+                        // line connects from road.start to node on road
+                        var isFromStart = road.start == anchor;
+                        var distanceAlongRoad = isStart ? node.distanceAlongRoad : nextNode.distanceAlongRoad;
+                        var roadPoints = road.GetEvenlySpacedPoints(stepSize);
+                        var pathPointsCount = pathPoints.Count;
+                        var dist = 0f;
+                        for (var i = 0; i < roadPoints.Length; ++i)
                         {
-                            var f = (float)i / amount;
-                            pathPoints.Add(
-                                new Bezier.OrientedPoint(a + f * l * n, n, Vector3.Lerp(up1, up2, f).normalized)
-                                    .ToWorldSpace(transform));
+                            if (i > 0)
+                                dist += Vector3.Distance(roadPoints[i - 1].position, roadPoints[i].position);
+                            if (isFromStart && dist > distanceAlongRoad) break;
+                            if (isFromStart ? dist <= distanceAlongRoad : dist >= distanceAlongRoad)
+                                pathPoints.Add(roadPoints[i].ToWorldSpace(road.transform));
                         }
+                    
+                        // added points need to be reversed if we come from road.end to node on road
+                        // or from node on road to road.start
+                        var isReverse = isStart == isFromStart;
+                        if (pathPoints.Count > pathPointsCount)
+                        {
+                            if (isReverse) pathPoints.Reverse(pathPointsCount, pathPoints.Count - pathPointsCount);
+                            if (isStart)
+                                pathPoints.Insert(pathPointsCount, new Bezier.OrientedPoint(
+                                    node.GetWorldPosition(), pathPoints[pathPointsCount].forward,
+                                    pathPoints[pathPointsCount].normal));
+                            else
+                                pathPoints.Add(new Bezier.OrientedPoint(
+                                    nextNode.GetWorldPosition(), pathPoints[pathPoints.Count - 1].forward,
+                                    pathPoints[pathPoints.Count - 1].normal));
+                        }
+
+                        break;
+                    }
+
+                    default:
+                    {
+                        var pos1 = node.GetWorldPosition();
+                        var norm1 = node.anchor?.transform.up ?? node.intersection?.transform.up ?? Vector3.up;
+                        var pos2 = nextNode.GetWorldPosition();
+                        var norm2 = nextNode.anchor?.transform.up ?? nextNode.intersection?.transform.up ?? Vector3.up;
+                        var dist = Vector3.Distance(pos1, pos2);
+                        var n = (pos2 - pos1).normalized;
+                        var nPoints = Mathf.CeilToInt(dist / stepSize) + 1;
+                        for (var i = pathPoints.Count > 0 ? 1 : 0; i < nPoints; ++i)
+                        {
+                            var t = Mathf.Lerp(0, dist, (float)i / Mathf.Max(1, nPoints - 1));
+                            pathPoints.Add(new Bezier.OrientedPoint(pos1 + t * n, n,
+                                Vector3.Lerp(norm1, norm2, t / dist)));
+                        }
+
+                        break;
                     }
                 }
             }
@@ -584,14 +550,14 @@ namespace Barmetler.RoadSystem
             {
                 if (!intersection) return -1;
                 return nodes.FindIndex(0, nodes.Count,
-                    node => node.nodeType == Node.NodeType.INTERSECTION && node.intersection == intersection);
+                    node => node.nodeType == NodeType.INTERSECTION && node.intersection == intersection);
             }
 
             private static int FindIndex(RoadAnchor anchor, List<Node> nodes)
             {
                 if (!anchor) return -1;
                 return nodes.FindIndex(0, nodes.Count,
-                    node => node.nodeType == Node.NodeType.ANCHOR && node.anchor == anchor);
+                    node => node.nodeType == NodeType.ANCHOR && node.anchor == anchor);
             }
 
             /// <summary>
@@ -654,6 +620,7 @@ namespace Barmetler.RoadSystem
 
                 // if start or goal is coincident with an existing node, A* will fail, so we just move them a bit.
                 // This will only affect the search, not the rendering of the path.
+                // This is very hacky, but it works.
                 for (var i = 0; i < 2; ++i)
                 {
                     var nodeIndex = i == 0 ? startIndex : goalIndex;
@@ -664,9 +631,16 @@ namespace Barmetler.RoadSystem
                     const float threshold = 1e-3f;
                     foreach (var otherIndex in new[]
                                  { roadStartIndex, roadEndIndex, anchorIndex, intersectionIndex })
-                        if (otherIndex != -1 &&
-                            Vector3.Distance(nodesList[otherIndex].position, nodesList[nodeIndex].position) < threshold)
-                            nodesList[nodeIndex].position += Vector3.one * threshold;
+                    {
+                        if (otherIndex == -1 ||
+                            !(Vector3.Distance(nodesList[otherIndex].position, nodesList[nodeIndex].position) <
+                              threshold)) continue;
+                        nodesList[nodeIndex].position += Vector3.one * threshold;
+                        if (i == 0)
+                            startDistanceAlongRoad += threshold;
+                        else
+                            goalDistanceAlongRoad += threshold;
+                    }
                 }
 
                 var weightsWithStartAndGoal = new ExtendedTwoDimensionalNativeArray<float>(

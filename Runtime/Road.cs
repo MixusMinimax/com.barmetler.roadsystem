@@ -456,13 +456,6 @@ namespace Barmetler.RoadSystem
 
 			Bezier.OrientedPoint[] result;
 
-			var angles = new List<float>();
-			for (var i = 0; i < normals.Count; ++i)
-			{
-				var forward = i == 0 ? points[1] - points[0] : points[i * 3] - points[i * 3 - 1];
-				angles.Add(Bezier.AngleFromNormal(forward, normals[i]));
-			}
-
 			using (CalculateEvenlySpacedPointsPerfMarker.Auto())
 			{
 				if (calculateBoundingBoxes)
