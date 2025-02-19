@@ -121,7 +121,6 @@ namespace Util
             _indices.Dispose(inputDeps);
         }
 
-        [NotBurstCompatible]
         public int[] ToArray()
         {
             var copy = new NativeMinHeap(_nodes.Length, Allocator.Temp);

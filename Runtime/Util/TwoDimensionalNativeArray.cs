@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -61,10 +60,8 @@ namespace Util
 
         public NativeArray<T> AsNativeArray() => _data;
 
-        [NotBurstCompatible]
         public T[] ToArray() => _data.ToArray();
-        
-        [NotBurstCompatible]
+
         public void CopyFrom(T[] array) => _data.CopyFrom(array);
     }
 
@@ -235,7 +232,6 @@ namespace Util
         /// Some optimizations are done, like copying the entire _data array if no margins to the left or right are present (_vertical).
         /// </summary>
         /// <returns>Array with the same data as this array.</returns>
-        [NotBurstCompatible]
         public T[] ToArray()
         {
             var result = new NativeArray<T>(Length, Allocator.Temp);
