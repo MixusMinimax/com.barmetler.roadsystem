@@ -494,20 +494,20 @@ namespace Barmetler.RoadSystem
 			_extractResultsMarker.Begin();
 			// extract results with no allocations
 			var newVertices = job.ResultVertices.AsArray().ToArray();
-			var newIndices = new int[job.ResultIndices.length][];
+			var newIndices = new int[job.ResultIndices.Length][];
 			for (var i = 0; i < newIndices.Length; ++i)
 			{
 				ref var x = ref job.ResultIndices.ElementAt(i);
-				var y = newIndices[i] = new int[x.length];
-				for (var j = 0; j < x.length; ++j)
+				var y = newIndices[i] = new int[x.Length];
+				for (var j = 0; j < x.Length; ++j)
 					y[j] = x[j];
 			}
 			var newUVs = new Vector2[8][];
 			for (var i = 0; i < 8; ++i)
 			{
 				ref var x = ref job.ResultUVs.ElementAt(i);
-				var y = newUVs[i] = new Vector2[x.length];
-				for (var j = 0; j < x.length; ++j)
+				var y = newUVs[i] = new Vector2[x.Length];
+				for (var j = 0; j < x.Length; ++j)
 					y[j] = x[j];
 			}
 			_extractResultsMarker.End();

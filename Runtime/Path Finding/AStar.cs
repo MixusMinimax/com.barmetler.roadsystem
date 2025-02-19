@@ -182,7 +182,7 @@ namespace Barmetler
 				Path = new NativeList<int>(Allocator.TempJob)
 			};
 			job.Run();
-			var path = job.Path.ToArray();
+			var path = job.Path.AsArray().ToArray();
 			job.Path.Dispose();
 			stepsTaken = stepsTakenI;
 			return path;
