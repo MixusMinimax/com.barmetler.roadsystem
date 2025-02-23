@@ -122,12 +122,12 @@ namespace Barmetler.RoadSystem
 				Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, EventType.Repaint);
 				Handles.color = Color.yellow * 0.8f;
 				Handles.DrawLine(p.position, p.position + p.normal);
-				Handles.color = Color.red * 0.8f;
-				Handles.DrawLine(p.position, p.position + p.forward);
+				// Handles.color = Color.red * 0.8f;
+				// Handles.DrawLine(p.position, p.position + p.forward);
 			}
 		}
 
-		private readonly Dictionary<int, Quaternion> initialRotations = new Dictionary<int, Quaternion>();
+		private readonly Dictionary<int, Quaternion> _initialRotations = new Dictionary<int, Quaternion>();
 
 		private void GUIControlPoints(int controlID)
 		{
@@ -194,7 +194,7 @@ namespace Barmetler.RoadSystem
 						var newRot = Handles.RotationHandle(Tools.pivotRotation == PivotRotation.Local ? rot : Quaternion.identity, pos);
 						if (hc != GUIUtility.hotControl)
 						{
-							initialRotations[GUIUtility.hotControl] = rot;
+							_initialRotations[GUIUtility.hotControl] = rot;
 						}
 
 						if ((Tools.pivotRotation == PivotRotation.Global && newRot != Quaternion.identity) ||
@@ -205,7 +205,7 @@ namespace Barmetler.RoadSystem
 								if (GUIUtility.hotControl == 1317) // 1317
 									newRot *= rot;
 								else
-									newRot *= initialRotations[GUIUtility.hotControl];
+									newRot *= _initialRotations[GUIUtility.hotControl];
 							}
 
 							Undo.RecordObject(road, "Rotate Control Point");
@@ -397,9 +397,9 @@ namespace Barmetler.RoadSystem
 						segmentNormals[polyIndex],
 						segmentNormals[Mathf.Min(polyIndex + 1, segmentNormals.Length - 1)], polyT
 					).normalized;
-					
+
 					var tooClose = t < 1e-6 || t > 1 - 1e-6;
-					
+
 					Handles.color = tooClose ? Color.grey : Color.white;
 					Handles.SphereHandleCap(0, hoverPos, Quaternion.identity,
 						0.2f * HandleUtility.GetHandleSize(hoverPos), EventType.Repaint);
@@ -798,7 +798,7 @@ namespace Barmetler.RoadSystem
 			}
 			if (endHorizontal) GUILayout.EndHorizontal();
 		}
-		
+
 		// copied from HandleUtility, but with added out values
 		private static Vector3 ClosestPointToPolyLine(Vector3[] vertices, out int index, out float t)
 		{

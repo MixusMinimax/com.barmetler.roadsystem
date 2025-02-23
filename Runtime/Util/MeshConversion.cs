@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -13,8 +14,8 @@ namespace Barmetler.RoadSystem.Util
 		/// Describes the coordinate space of a mesh.
 		/// </summary>
 		[System.Serializable]
-		public struct MeshOrientation
-		{
+		public struct MeshOrientation : IEquatable<MeshOrientation>
+        {
 			public enum AxisDirection
 			{
 				X_POSITIVE, X_NEGATIVE, Y_POSITIVE, Y_NEGATIVE, Z_POSITIVE, Z_NEGATIVE
@@ -53,7 +54,7 @@ namespace Barmetler.RoadSystem.Util
 				}
 			}
 
-			public readonly static Dictionary<string, MeshOrientation> Presets = new Dictionary<string, MeshOrientation>
+			public static readonly Dictionary<string, MeshOrientation> Presets = new Dictionary<string, MeshOrientation>
 			{
 				["BLENDER"] = new MeshOrientation
 				{
@@ -66,11 +67,32 @@ namespace Barmetler.RoadSystem.Util
 					forward = AxisDirection.Z_POSITIVE,
 					up = AxisDirection.Y_POSITIVE,
 					isRightHanded = false
-				},
-			};
+				}
+            };
 
-			private readonly static Dictionary<MeshOrientation, string> PresetNames = new Dictionary<MeshOrientation, string>();
-		}
+			private static readonly Dictionary<MeshOrientation, string> PresetNames = new Dictionary<MeshOrientation, string>();
+
+            public bool Equals(MeshOrientation other)
+            {
+                return forward == other.forward && up == other.up && isRightHanded == other.isRightHanded;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is MeshOrientation other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hashCode = (int)forward;
+                    hashCode = (hashCode * 397) ^ (int)up;
+                    hashCode = (hashCode * 397) ^ isRightHanded.GetHashCode();
+                    return hashCode;
+                }
+            }
+        }
 
 		/// <summary>
 		/// Perform a deep copy of a Mesh.
@@ -113,7 +135,7 @@ namespace Barmetler.RoadSystem.Util
 			MeshOrientation.AxisDirection.Z_NEGATIVE => -Vector3.forward,
 			_ => Vector3.zero, // can't happen
 		};
-		
+
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static float3 ToFloat3(this MeshOrientation.AxisDirection axis) => axis switch
 		{

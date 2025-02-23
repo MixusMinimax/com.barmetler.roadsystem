@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Barmetler.RoadSystem.Util;
 using Unity.Burst;
 using Unity.Collections;
@@ -589,8 +591,9 @@ namespace Barmetler.RoadSystem
                 StepSize = stepSize,
                 UVOffset = settings.uvOffset,
                 Points = new NativeArray<GenerateRoadMeshV2Job.OrientedPoint>(points, Allocator.TempJob),
+                SourceOrientation = settings.SourceOrientation,
                 SourceMeshData = sourceMeshDataArray[0],
-                SourceAttributes = sourceAttributes,
+                SourceVertexAttributes = sourceAttributes,
                 SourceBounds = sourceBounds,
                 ResultMeshData = resultMeshData[0],
                 ResultBounds = resultBounds
@@ -628,11 +631,14 @@ namespace Barmetler.RoadSystem
             public NativeArray<OrientedPoint> Points;
 
             [ReadOnly]
+            public MeshConversion.MeshOrientation SourceOrientation;
+
+            [ReadOnly]
             public Mesh.MeshData SourceMeshData;
 
             [ReadOnly]
             [DeallocateOnJobCompletion]
-            public NativeArray<VertexAttributeDescriptor> SourceAttributes;
+            public NativeArray<VertexAttributeDescriptor> SourceVertexAttributes;
 
             [ReadOnly]
             public Bounds SourceBounds;
@@ -642,9 +648,10 @@ namespace Barmetler.RoadSystem
             [WriteOnly]
             public NativeArray<float3> ResultBounds;
 
+            [SuppressMessage("ReSharper", "ForCanBeConvertedToForeach")]
             public void Execute()
             {
-                using var sourceAttributeData = new VertexAttributeData(SourceMeshData, SourceAttributes);
+                using var sourceAttributeData = new VertexAttributeData(SourceMeshData, SourceVertexAttributes);
 
                 // The last point is repositioned to the end of the bezier, so the length of the line is the
                 // amount of segments - 1 + the length of the last segment.
@@ -652,6 +659,294 @@ namespace Barmetler.RoadSystem
                     ? StepSize * (Points.Length - 2) +
                       length(Points[Points.Length - 2].Position - Points[Points.Length - 1].Position)
                     : 0;
+
+                var meshLength = SourceOrientation.forward switch
+                {
+                    MeshConversion.MeshOrientation.AxisDirection.X_POSITIVE => SourceBounds.size.x,
+                    MeshConversion.MeshOrientation.AxisDirection.X_NEGATIVE => SourceBounds.size.x,
+                    MeshConversion.MeshOrientation.AxisDirection.Y_POSITIVE => SourceBounds.size.y,
+                    MeshConversion.MeshOrientation.AxisDirection.Y_NEGATIVE => SourceBounds.size.y,
+                    MeshConversion.MeshOrientation.AxisDirection.Z_POSITIVE => SourceBounds.size.z,
+                    MeshConversion.MeshOrientation.AxisDirection.Z_NEGATIVE => SourceBounds.size.z,
+                    _ => throw new ArgumentOutOfRangeException()
+                };
+
+                var copyCount = (int)ceil(bezierLength / meshLength);
+                var sourceVertexCount = SourceMeshData.vertexCount;
+                var subMeshCount = SourceMeshData.subMeshCount;
+                var guessedResultVertexCount = copyCount * sourceVertexCount;
+
+                var sourceIndices = new IndexLists<ushort>(subMeshCount, Allocator.Temp);
+                for (var subMeshIndex = 0; subMeshIndex < subMeshCount; ++subMeshIndex)
+                {
+                    var subMesh = SourceMeshData.GetSubMesh(subMeshIndex);
+                    ref var sourceSubMeshIndices = ref sourceIndices[subMeshIndex];
+                    sourceSubMeshIndices.ResizeUninitialized(subMesh.indexCount);
+                    SourceMeshData.GetIndices(sourceSubMeshIndices.AsArray(), subMeshIndex);
+                    if (SourceOrientation.isRightHanded)
+                    {
+                        for (var i = 0; i < sourceSubMeshIndices.Length; i += 3)
+                        {
+                            (sourceSubMeshIndices[i], sourceSubMeshIndices[i + 2]) =
+                                (sourceSubMeshIndices[i + 2], sourceSubMeshIndices[i]);
+                        }
+                    }
+                }
+
+                var positions = new NativeList<float3>(Allocator.Temp);
+                positions.ResizeUninitialized(guessedResultVertexCount);
+                var normals = new NativeList<float3>(Allocator.Temp);
+                normals.ResizeUninitialized(guessedResultVertexCount);
+                var tangents = new NativeList<float4>(Allocator.Temp);
+                tangents.ResizeUninitialized(guessedResultVertexCount);
+                var uvs = new NativeList<float2>(Allocator.Temp);
+                uvs.ResizeUninitialized(guessedResultVertexCount * sourceAttributeData.UVChannelCount);
+
+                var indices = new IndexLists<ushort>(subMeshCount, Allocator.Temp);
+
+                var sourceForward = SourceOrientation.forward.ToFloat3();
+                var sourceUp = SourceOrientation.up.ToFloat3();
+                var sourceRight = SourceOrientation.isRightHanded
+                    ? cross(sourceForward, sourceUp)
+                    : cross(sourceUp, sourceForward);
+
+                for (var z = 0; z < copyCount; ++z)
+                {
+                    var zOffset = z * meshLength;
+                    for (var sourceIndex = 0; sourceIndex < sourceVertexCount; ++sourceIndex)
+                    {
+                        var resultIndex = z * sourceVertexCount + sourceIndex;
+                        sourceAttributeData.GetFloat3(sourceIndex, VertexAttribute.Position, out var position);
+                        position = float3(dot(sourceRight, position), dot(sourceUp, position),
+                            dot(sourceForward, position) + zOffset);
+                        sourceAttributeData.GetFloat3(sourceIndex, VertexAttribute.Normal, out var normal);
+                        normal = float3(dot(sourceRight, normal), dot(sourceUp, normal), dot(sourceForward, normal));
+                        sourceAttributeData.GetFloat4(sourceIndex, VertexAttribute.Tangent, out var tangent);
+                        tangent = float4(dot(sourceRight, tangent.xyz), dot(sourceUp, tangent.xyz),
+                            dot(sourceForward, tangent.xyz), tangent.w);
+
+                        positions[resultIndex] = position;
+                        normals[resultIndex] = normal;
+                        tangents[resultIndex] = tangent;
+
+                        for (var channel = 0; channel < sourceAttributeData.UVChannelCount; ++channel)
+                        {
+                            sourceAttributeData.GetFloat2(sourceIndex, VertexAttribute.TexCoord0 + channel,
+                                out var uv);
+                            uvs[resultIndex * sourceAttributeData.UVChannelCount + channel] = uv + UVOffset * z;
+                        }
+                    }
+
+                    // copy indices
+                    // the last set of triangles is not copied for now, but added and potentially clipped later
+                    if (z == copyCount - 1) continue;
+
+                    for (var subMeshIndex = 0; subMeshIndex < subMeshCount; ++subMeshIndex)
+                    {
+                        var a = sourceIndices[subMeshIndex];
+                        var b = indices[subMeshIndex];
+                        b.ResizeUninitialized(b.Length + a.Length);
+                        for (var i = 0; i < a.Length; ++i)
+                            b[b.Length - a.Length + i] = (ushort)(z * sourceVertexCount + a[i]);
+                    }
+                }
+
+                var vertexAttributes = new NativeArray<VertexAttributeDescriptor>(
+                    3 + sourceAttributeData.UVChannelCount,
+                    Allocator.Temp, NativeArrayOptions.UninitializedMemory);
+                vertexAttributes[0] = new VertexAttributeDescriptor(
+                    attribute: VertexAttribute.Position, format: VertexAttributeFormat.Float32, dimension: 3,
+                    stream: 0);
+                vertexAttributes[1] = new VertexAttributeDescriptor(
+                    attribute: VertexAttribute.Normal, format: VertexAttributeFormat.Float32, dimension: 3, stream: 1);
+                vertexAttributes[2] = new VertexAttributeDescriptor(
+                    attribute: VertexAttribute.Tangent, format: VertexAttributeFormat.Float32, dimension: 4, stream: 2);
+                for (var i = 0; i < sourceAttributeData.UVChannelCount; i++)
+                {
+                    var attr = SourceVertexAttributes[(int)(VertexAttribute.TexCoord0 + i)];
+                    attr.stream = 3;
+                    vertexAttributes[3 + i] = attr;
+                }
+
+                var resultVertexCount = positions.Length;
+                ResultMeshData.SetVertexBufferParams(resultVertexCount, vertexAttributes);
+                vertexAttributes.Dispose();
+
+                var resultPositions = ResultMeshData.GetVertexData<float3>(stream: 0);
+                var resultNormals = ResultMeshData.GetVertexData<float3>(stream: 1);
+                var resultTangents = ResultMeshData.GetVertexData<float4>(stream: 2);
+                var resultUVs = ResultMeshData.GetVertexData<float2>(stream: 3);
+
+                resultPositions.CopyFrom(positions.AsArray());
+                resultNormals.CopyFrom(normals.AsArray());
+                resultTangents.CopyFrom(tangents.AsArray());
+                resultUVs.CopyFrom(uvs.AsArray());
+
+                var boundsMin = new float3(float.MaxValue);
+                var boundsMax = new float3(float.MinValue);
+
+                foreach (var position in positions)
+                {
+                    boundsMin = min(boundsMin, position);
+                    boundsMax = max(boundsMax, position);
+                }
+
+                ResultBounds[0] = boundsMin;
+                ResultBounds[1] = boundsMax;
+
+                ResultMeshData.SetIndexBufferParams(indices.TotalIndexCount, IndexFormat.UInt16);
+                ResultMeshData.subMeshCount = subMeshCount;
+                var indexData = ResultMeshData.GetIndexData<ushort>();
+                var indexOffset = 0;
+                for (var subMeshIndex = 0; subMeshIndex < subMeshCount; ++subMeshIndex)
+                {
+                    var subMesh = SourceMeshData.GetSubMesh(subMeshIndex);
+                    var subMeshIndices = indices[subMeshIndex];
+                    indexData.GetSubArray(indexOffset, subMeshIndices.Length).CopyFrom(subMeshIndices);
+
+                    boundsMin = new float3(float.MaxValue);
+                    boundsMax = new float3(float.MinValue);
+                    var minIndex = int.MaxValue;
+                    using var usedIndices = new NativeHashSet<int>(subMeshIndices.Length, Allocator.Temp);
+
+                    for (var i = 0; i < subMeshIndices.Length; ++i)
+                    {
+                        var index = subMeshIndices[i];
+                        boundsMin = min(boundsMin, positions[index]);
+                        boundsMax = max(boundsMax, positions[index]);
+                        minIndex = min(minIndex, index);
+                        usedIndices.Add(index);
+                    }
+
+                    ResultMeshData.SetSubMesh(subMeshIndex, new SubMeshDescriptor
+                    {
+                        bounds = new Bounds { min = boundsMin, max = boundsMax },
+                        topology = subMesh.topology,
+                        indexStart = indexOffset,
+                        indexCount = subMeshIndices.Length,
+                        firstVertex = minIndex,
+                        vertexCount = usedIndices.Count()
+                    }, MeshUpdateFlags.DontRecalculateBounds);
+                    indexOffset += subMeshIndices.Length;
+                }
+
+                positions.Dispose();
+                normals.Dispose();
+                tangents.Dispose();
+                uvs.Dispose();
+                sourceIndices.Dispose();
+                indices.Dispose();
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct IndexLists<T> : IDisposable where T : unmanaged
+            {
+                public NativeList<T>
+                    SubMesh0,
+                    SubMesh1,
+                    SubMesh2,
+                    SubMesh3,
+                    SubMesh4,
+                    SubMesh5,
+                    SubMesh6,
+                    SubMesh7,
+                    SubMesh8,
+                    SubMesh9,
+                    SubMesh10,
+                    SubMesh11,
+                    SubMesh12,
+                    SubMesh13,
+                    SubMesh14,
+                    SubMesh15,
+                    SubMesh16,
+                    SubMesh17,
+                    SubMesh18,
+                    SubMesh19,
+                    SubMesh20,
+                    SubMesh21,
+                    SubMesh22,
+                    SubMesh23,
+                    SubMesh24,
+                    SubMesh25,
+                    SubMesh26,
+                    SubMesh27,
+                    SubMesh28,
+                    SubMesh29,
+                    SubMesh30,
+                    SubMesh31;
+
+                public Allocator Allocator;
+
+                private int _subMeshCount;
+
+                public IndexLists(Allocator allocator)
+                {
+                    this = default;
+                    Allocator = allocator;
+                }
+
+                public IndexLists(int subMeshCount, Allocator allocator)
+                {
+                    this = default;
+                    Allocator = allocator;
+                    Resize(subMeshCount);
+                }
+
+                private unsafe ref NativeList<T> GetUnchecked(int index) =>
+                    ref UnsafeUtility.ArrayElementAsRef<NativeList<T>>(
+                        UnsafeUtility.AddressOf(ref SubMesh0), index);
+
+                public ref NativeList<T> this[int index]
+                {
+                    get
+                    {
+                        if (index < 0 || index >= _subMeshCount)
+                            throw new IndexOutOfRangeException();
+                        return ref GetUnchecked(index);
+                    }
+                }
+
+                public void Resize(int subMeshCount)
+                {
+                    if (subMeshCount < 0 || subMeshCount > 32)
+                        throw new ArgumentOutOfRangeException();
+                    if (subMeshCount == _subMeshCount) return;
+                    if (subMeshCount < _subMeshCount)
+                    {
+                        for (var i = subMeshCount; i < _subMeshCount; ++i)
+                            GetUnchecked(i).Dispose();
+                    }
+                    else
+                    {
+                        for (var i = _subMeshCount; i < subMeshCount; ++i)
+                            GetUnchecked(i) = new NativeList<T>(Allocator);
+                    }
+
+                    _subMeshCount = subMeshCount;
+                }
+
+                public int SubMeshCount
+                {
+                    get => _subMeshCount;
+                    set => Resize(value);
+                }
+
+                public int TotalIndexCount
+                {
+                    get
+                    {
+                        var sum = 0;
+                        for (var i = 0; i < _subMeshCount; ++i)
+                            sum += this[i].Length;
+                        return sum;
+                    }
+                }
+
+                public void Dispose()
+                {
+                    for (var i = 0; i < _subMeshCount; ++i)
+                        this[i].Dispose();
+                }
             }
         }
 
