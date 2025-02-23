@@ -239,7 +239,6 @@ namespace Barmetler.RoadSystem
 
                     var previousPointOnCurve = p[0];
                     float segmentLength = 0;
-                    Vector3 forwardOnCurve;
 
                     var controlNetLength = Vector3.Distance(p[0], p[1]) + Vector3.Distance(p[1], p[2]) +
                                            Vector3.Distance(p[2], p[3]);
@@ -249,6 +248,7 @@ namespace Barmetler.RoadSystem
                     {
                         var startIndex = Result.Length;
                         var t = startIndex == 0 ? -1f / divisions : 0;
+                        Vector3 forwardOnCurve;
                         while (t <= 1)
                         {
                             t += 1f / divisions;
