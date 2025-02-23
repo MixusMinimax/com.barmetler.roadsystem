@@ -1,7 +1,7 @@
-﻿using UnityEngine;
-using UnityEditor;
+﻿using UnityEditor;
+using UnityEngine;
 
-namespace Barmetler.RoadSystem
+namespace Barmetler.RoadSystem.Settings
 {
     public class NewIntersectionWizard : ScriptableWizard
     {

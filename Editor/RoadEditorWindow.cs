@@ -1,7 +1,7 @@
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
+using Barmetler.RoadSystem.Settings;
 using UnityEditor;
+using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
@@ -9,12 +9,12 @@ namespace Barmetler.RoadSystem
     {
         [MenuItem("Tools/RoadSystem/Show Editor")]
         [MenuItem("Window/Road System Editor")]
-        static void ShowWindow()
+        private static void ShowWindow()
         {
             GetWindow(typeof(RoadEditorWindow));
         }
 
-        struct Button
+        private struct Button
         {
             public enum ESymbol
             {
@@ -31,10 +31,10 @@ namespace Barmetler.RoadSystem
             public Texture Icon;
         }
 
-        List<Button> Actions = new List<Button>();
+        private List<Button> Actions = new List<Button>();
 
-        const float BUTTON_SIZE = 48;
-        const float BUTTON_GAP = 4;
+        private const float BUTTON_SIZE = 48;
+        private const float BUTTON_GAP = 4;
 
         private void OnEnable()
         {
@@ -176,7 +176,7 @@ namespace Barmetler.RoadSystem
                 GUILayout.EndHorizontal();
         }
 
-        static string GetInitials(string str)
+        private static string GetInitials(string str)
         {
             if (str == null) return "";
             str = str.ToLower();

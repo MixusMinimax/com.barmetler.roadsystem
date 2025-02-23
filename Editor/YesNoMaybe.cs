@@ -1,4 +1,4 @@
-namespace Barmetler
+namespace Barmetler.RoadSystem
 {
     public enum YesNoMaybe
     {

@@ -23,8 +23,8 @@ namespace Util
 
         public TwoDimensionalNativeArray(int width, int height, Allocator allocator)
         {
-            if (width <= 0 || height <= 0)
-                throw new ArgumentException("Width and height must be greater than zero.");
+            if (width < 0 || height < 0)
+                throw new ArgumentException("Width and height must be >= 0");
             Width = width;
             Height = height;
             Length = width * height;

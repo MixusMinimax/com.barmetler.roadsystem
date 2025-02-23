@@ -1,8 +1,9 @@
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEditor;
-using System.Linq;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using Barmetler.RoadSystem.Settings;
+using UnityEditor;
+using UnityEngine;
 
 #pragma warning disable CS0618
 
@@ -814,7 +815,7 @@ namespace Barmetler.RoadSystem
 			}
 			var vertex1 = vertices[index1];
 			var vertex2 = vertices[index1 + 1];
-			var rhs = UnityEngine.Event.current.mousePosition - HandleUtility.WorldToGUIPoint(vertex1);
+			var rhs = Event.current.mousePosition - HandleUtility.WorldToGUIPoint(vertex1);
 			var lhs = HandleUtility.WorldToGUIPoint(vertex2) - HandleUtility.WorldToGUIPoint(vertex1);
 			var magnitude = lhs.magnitude;
 			var num2 = Vector3.Dot((Vector3) lhs, (Vector3) rhs);

@@ -1,15 +1,15 @@
-using System.Linq;
 using System.Collections.Generic;
-using UnityEngine;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.EditorTools;
+using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
     [EditorTool("RoadSystem/Road Link Tool")]
     public class RoadLinkTool : EditorTool
     {
-        GUIContent m_IconContent;
+        private GUIContent m_IconContent;
 
         public override GUIContent toolbarIcon => m_IconContent;
 
@@ -39,12 +39,12 @@ namespace Barmetler.RoadSystem
             Undo.undoRedoPerformed -= OnUndoRedo;
         }
 
-        enum ToolState
+        private enum ToolState
         {
             SELECTING, LINKING, UNLINKING
         }
 
-        ToolState toolState = ToolState.SELECTING;
+        private ToolState toolState = ToolState.SELECTING;
 
         public interface IPoint : System.IEquatable<IPoint>
         {
@@ -91,7 +91,7 @@ namespace Barmetler.RoadSystem
             }
         }
 
-        static IPoint activePoint = null;
+        private static IPoint activePoint = null;
 
         public static IPoint ActivePoint => activePoint;
         public static GameObject Selection => activePoint?.gameObject;
@@ -243,7 +243,7 @@ namespace Barmetler.RoadSystem
             PrintToolTip();
         }
 
-        void PrintToolTip()
+        private void PrintToolTip()
         {
             string text = null;
             switch (toolState)
@@ -266,7 +266,7 @@ namespace Barmetler.RoadSystem
             }
         }
 
-        static void Link(IPoint a, IPoint b, bool extend)
+        private static void Link(IPoint a, IPoint b, bool extend)
         {
             if (a is RoadPoint && b is AnchorPoint)
             {
@@ -301,7 +301,7 @@ namespace Barmetler.RoadSystem
             Unlink(activePoint);
         }
 
-        static void Unlink(IPoint point)
+        private static void Unlink(IPoint point)
         {
             if (ActiveInstance)
             {
@@ -326,7 +326,7 @@ namespace Barmetler.RoadSystem
             }
         }
 
-        static void OnUndoRedo()
+        private static void OnUndoRedo()
         {
             if (activePoint is RoadPoint roadPoint && roadPoint.IsConnected)
             {

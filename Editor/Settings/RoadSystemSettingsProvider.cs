@@ -1,8 +1,8 @@
 using System.Collections.Generic;
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
-namespace Barmetler.RoadSystem
+namespace Barmetler.RoadSystem.Settings
 {
     public static class RoadSystemSettingsProvider
     {

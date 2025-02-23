@@ -1,5 +1,5 @@
-using System.Linq;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 
 namespace Barmetler.RoadSystem
@@ -7,14 +7,14 @@ namespace Barmetler.RoadSystem
     [CustomEditor(typeof(Intersection))]
     public class IntersectionEditor : Editor
     {
-        Intersection intersection;
-        List<Road> affectedRoads;
+        private Intersection _intersection;
+        private List<Road> _affectedRoads;
 
         private void OnEnable()
         {
-            intersection = (Intersection)target;
-            intersection.Invalidate();
-            affectedRoads = intersection.AnchorPoints.Select(e => e.GetConnectedRoad()).Where(e => e).ToList();
+            _intersection = (Intersection)target;
+            _intersection.Invalidate();
+            _affectedRoads = _intersection.AnchorPoints.Select(e => e.GetConnectedRoad()).Where(e => e).ToList();
             Undo.undoRedoPerformed += OnUndoRedo;
         }
 
@@ -25,15 +25,15 @@ namespace Barmetler.RoadSystem
 
         public void OnUndoRedo()
         {
-            affectedRoads.ForEach(e => e.OnCurveChanged(true));
+            _affectedRoads.ForEach(e => e.OnCurveChanged(true));
         }
 
         private void OnSceneGUI()
         {
-            if (intersection.transform.hasChanged)
+            if (_intersection.transform.hasChanged)
             {
-                intersection.transform.hasChanged = false;
-                intersection.Invalidate();
+                _intersection.transform.hasChanged = false;
+                _intersection.Invalidate();
             }
         }
     }

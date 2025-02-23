@@ -1,13 +1,13 @@
 using System.Linq;
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
 	[CustomEditor(typeof(RoadMeshGenerator))]
 	public class RoadMeshEditor : Editor
 	{
-		RoadMeshGenerator roadMeshGenerator;
+		private RoadMeshGenerator roadMeshGenerator;
 
 		public override void OnInspectorGUI()
 		{

@@ -1,12 +1,13 @@
-using UnityEngine;
+using Barmetler.RoadSystem.Settings;
 using UnityEditor;
 using UnityEditor.EditorTools;
+using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
     public class RoadMenu : MonoBehaviour
     {
-        static RoadEditor ActiveEditor => RoadEditor.GetEditor(Selection.activeGameObject);
+        private static RoadEditor ActiveEditor => RoadEditor.GetEditor(Selection.activeGameObject);
 
         #region Validation
         public static bool MenuRoadIsSelected() =>

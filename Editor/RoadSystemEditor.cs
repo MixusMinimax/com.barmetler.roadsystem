@@ -1,20 +1,20 @@
 using System.Linq;
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
 	[CustomEditor(typeof(RoadSystem))]
 	public class RoadSystemEditor : Editor
 	{
-		RoadSystem roadSystem;
+		private RoadSystem roadSystem;
 
 		private void OnSceneGUI()
 		{
 			Draw();
 		}
 
-		void Draw()
+		private void Draw()
 		{
 			if (roadSystem.ShowDebugInfo)
 			{
@@ -40,7 +40,7 @@ namespace Barmetler.RoadSystem
 			}
 		}
 
-		int presetSelectedIndex = 0;
+		private int presetSelectedIndex = 0;
 
 		public override void OnInspectorGUI()
 		{

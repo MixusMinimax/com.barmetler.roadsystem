@@ -2,13 +2,13 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 
-namespace Barmetler.RoadSystem
+namespace Barmetler.RoadSystem.Settings
 {
 	[CreateAssetMenu(fileName = "RoadSystemSettings", menuName = "Barmetler/RoadSystemSettings")]
 	public class RoadSystemSettings : ScriptableObject
 	{
 		[System.Serializable]
-		class RoadSettings
+		private class RoadSettings
 		{
 			[Tooltip("Draw bounding boxes around bezier segments?")]
 			public bool drawBoundingBoxes = false;
@@ -22,23 +22,18 @@ namespace Barmetler.RoadSystem
 		}
 
 		[System.Serializable]
-		class IntersectionSettings
+		private class IntersectionSettings
         {
 			[Tooltip("The Prefab to use when creating a new intersection.")]
 			public GameObject newIntersectionPrefab;
 		}
 
-		[SerializeField]
-		RoadSettings roadSettings = new RoadSettings();
-		[SerializeField]
-		IntersectionSettings intersectionSettings = new IntersectionSettings();
+		[SerializeField] private RoadSettings roadSettings = new RoadSettings();
+		[SerializeField] private IntersectionSettings intersectionSettings = new IntersectionSettings();
 
-		[SerializeField]
-		bool drawNavigatorDebug = false;
-		[SerializeField]
-		bool drawNavigatorDebugPoints = false;
-		[SerializeField]
-		bool autoCalculateNavigator = false;
+		[SerializeField] private bool drawNavigatorDebug = false;
+		[SerializeField] private bool drawNavigatorDebugPoints = false;
+		[SerializeField] private bool autoCalculateNavigator = false;
 
 		public bool DrawBoundingBoxes => roadSettings.drawBoundingBoxes;
 		public bool UseRayCast => roadSettings.useRayCast;

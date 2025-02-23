@@ -1,7 +1,7 @@
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
-namespace Barmetler.RoadSystem
+namespace Barmetler.RoadSystem.Settings
 {
     public class NewRoadWizard : ScriptableWizard
     {
