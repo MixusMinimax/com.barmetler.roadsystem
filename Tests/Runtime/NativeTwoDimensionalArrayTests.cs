@@ -1,10 +1,10 @@
-﻿using JetBrains.Annotations;
+﻿using Barmetler.RoadSystem.Util;
+using JetBrains.Annotations;
 using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Util;
 
 namespace Tests.Runtime
 {

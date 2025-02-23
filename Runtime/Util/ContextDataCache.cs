@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Barmetler
+namespace Barmetler.RoadSystem.Util
 {
 	public interface IInValidatable
 	{

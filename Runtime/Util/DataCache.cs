@@ -1,4 +1,4 @@
-namespace Barmetler
+namespace Barmetler.RoadSystem.Util
 {
 	public class DataCache<T>
 	{

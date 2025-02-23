@@ -1,4 +1,4 @@
-﻿namespace Barmetler.Util
+﻿namespace Barmetler.RoadSystem.Util
 {
     public static class Functional
     {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
-namespace Util
+namespace Barmetler.RoadSystem.Util
 {
     public static class UnsafeListExt
     {

@@ -5,7 +5,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
-namespace Util
+namespace Barmetler.RoadSystem.Util
 {
     /// <summary>
     /// Two-dimensional array that is stored in a single-dimensional NativeArray.

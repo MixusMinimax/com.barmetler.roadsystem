@@ -1,7 +1,7 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace Barmetler
+namespace Barmetler.RoadSystem.Util
 {
     public static class StringUtility
     {

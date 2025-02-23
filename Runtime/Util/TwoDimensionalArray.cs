@@ -1,7 +1,7 @@
 using System.Linq;
 using UnityEngine;
 
-namespace Barmetler
+namespace Barmetler.RoadSystem.Util
 {
 	/// <summary>
 	/// Works just like a normal two-dimensional Array, but is serializable.

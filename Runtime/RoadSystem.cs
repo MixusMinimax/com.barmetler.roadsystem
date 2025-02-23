@@ -1,10 +1,10 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using Barmetler.RoadSystem.Util;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
-using Util;
 using NodeType = Barmetler.RoadSystem.RoadSystem.Graph.Node.NodeType;
 
 namespace Barmetler.RoadSystem

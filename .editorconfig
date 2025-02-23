@@ -1,0 +1,13 @@
+﻿root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+resharper_csharp_place_field_attribute_on_same_line = never
+resharper_csharp_empty_block_style = do_not_change

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Barmetler.RoadSystem.Util;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -8,13 +9,13 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
-using Util;
-using static Unity.Mathematics.math;
-using float3 = Unity.Mathematics.float3;
-using static Barmetler.Util.Functional;
+using UnityEngine.Rendering;
 
 namespace Barmetler.RoadSystem
 {
+    using static math;
+
+
     [RequireComponent(typeof(Road)), RequireComponent(typeof(MeshFilter))]
     public class RoadMeshGenerator : MonoBehaviour
     {
@@ -42,7 +43,8 @@ namespace Barmetler.RoadSystem
             }
         }
 
-        [SerializeField, HideInInspector] private bool autoGenerate;
+        [SerializeField, HideInInspector]
+        private bool autoGenerate;
 
         [Tooltip("Drag the model to be used for mesh generation into this slot")]
         public MeshFilter SourceMesh;
@@ -225,15 +227,32 @@ namespace Barmetler.RoadSystem
         [BurstCompile(CompileSynchronously = true)]
         private struct GenerateRoadMeshJob : IJob
         {
-            [ReadOnly] public NativeArray<Bezier.OrientedPoint> Points;
-            [ReadOnly] public NativeArray<float3> Vertices;
-            [ReadOnly] public UnsafeList<UnsafeList<int>> Indices;
-            [ReadOnly] public UnsafeList<UnsafeList<float2>> UVs;
-            [ReadOnly] public int CompleteCopies;
-            [ReadOnly] public float MeshLength;
-            [ReadOnly] public float BezierLength;
-            [ReadOnly] public float StepSize;
-            [ReadOnly] public float2 UVOffset;
+            [ReadOnly]
+            public NativeArray<Bezier.OrientedPoint> Points;
+
+            [ReadOnly]
+            public NativeArray<float3> Vertices;
+
+            [ReadOnly]
+            public UnsafeList<UnsafeList<int>> Indices;
+
+            [ReadOnly]
+            public UnsafeList<UnsafeList<float2>> UVs;
+
+            [ReadOnly]
+            public int CompleteCopies;
+
+            [ReadOnly]
+            public float MeshLength;
+
+            [ReadOnly]
+            public float BezierLength;
+
+            [ReadOnly]
+            public float StepSize;
+
+            [ReadOnly]
+            public float2 UVOffset;
 
             public NativeList<float3> ResultVertices;
             public UnsafeList<UnsafeList<int>> ResultIndices;
@@ -527,6 +546,13 @@ namespace Barmetler.RoadSystem
             }
         }
 
+        /// <summary>
+        ///
+        /// </summary>
+        /// <param name="stepSize">
+        /// distance between evenly spaced points for the spline.
+        /// A bigger value results in straight sections of road.
+        /// </param>
         public void GenerateRoadMeshV2(float stepSize = 1)
         {
             if (!road) road = GetComponent<Road>();
@@ -534,7 +560,99 @@ namespace Barmetler.RoadSystem
             if (!road || !mf) return;
             if (!SourceMesh) return;
 
-            var points = road.GetEvenlySpacedPoints(stepSize);
+            var points = road
+                .GetEvenlySpacedPoints(stepSize)
+                .Select(p => new GenerateRoadMeshV2Job.OrientedPoint
+                {
+                    Position = p.position,
+                    Forward = p.forward,
+                    Normal = p.normal
+                })
+                .ToArray();
+
+            var sourceMesh = SourceMesh.sharedMesh;
+            var vertexAttributeEnumValues = (VertexAttribute[])Enum.GetValues(typeof(VertexAttribute));
+            // contains a mapping from VertexAttribute to VertexAttributeDescriptor.
+            // because the amount of VertexAttributes is small, we can use a NativeArray, functioning as a map.
+            var sourceAttributes =
+                new NativeArray<VertexAttributeDescriptor>(vertexAttributeEnumValues.Length, Allocator.TempJob);
+            foreach (var attributeDescriptor in sourceMesh.GetVertexAttributes())
+                sourceAttributes[(int)attributeDescriptor.attribute] = attributeDescriptor;
+            using var sourceMeshDataArray = Mesh.AcquireReadOnlyMeshData(sourceMesh);
+            var sourceBounds = sourceMesh.bounds;
+
+            var resultMeshData = Mesh.AllocateWritableMeshData(1);
+            using var resultBounds = new NativeArray<float3>(2, Allocator.TempJob);
+
+            new GenerateRoadMeshV2Job
+            {
+                StepSize = stepSize,
+                UVOffset = settings.uvOffset,
+                Points = new NativeArray<GenerateRoadMeshV2Job.OrientedPoint>(points, Allocator.TempJob),
+                SourceMeshData = sourceMeshDataArray[0],
+                SourceAttributes = sourceAttributes,
+                SourceBounds = sourceBounds,
+                ResultMeshData = resultMeshData[0],
+                ResultBounds = resultBounds
+            }.Run();
+
+            var resultMesh = new Mesh
+            {
+                name = "Road Mesh"
+            };
+            Mesh.ApplyAndDisposeWritableMeshData(resultMeshData, resultMesh);
+            resultMesh.bounds = new Bounds { min = resultBounds[0], max = resultBounds[1] };
+            mf.mesh = resultMesh;
+            if (GetComponent<MeshCollider>().Let(out var coll))
+                coll.sharedMesh = mf.sharedMesh;
+
+            Valid = true;
+        }
+
+        [BurstCompile(CompileSynchronously = true)]
+        private struct GenerateRoadMeshV2Job : IJob
+        {
+            public struct OrientedPoint
+            {
+                public float3 Position, Forward, Normal;
+            }
+
+            [ReadOnly]
+            public float StepSize;
+
+            [ReadOnly]
+            public float2 UVOffset;
+
+            [ReadOnly]
+            [DeallocateOnJobCompletion]
+            public NativeArray<OrientedPoint> Points;
+
+            [ReadOnly]
+            public Mesh.MeshData SourceMeshData;
+
+            [ReadOnly]
+            [DeallocateOnJobCompletion]
+            public NativeArray<VertexAttributeDescriptor> SourceAttributes;
+
+            [ReadOnly]
+            public Bounds SourceBounds;
+
+            public Mesh.MeshData ResultMeshData;
+
+            [WriteOnly]
+            public NativeArray<float3> ResultBounds;
+
+            public void Execute()
+            {
+                using var sourceAttributeData = new VertexAttributeData(SourceMeshData, SourceAttributes);
+
+                // The last point is repositioned to the end of the bezier, so the length of the line is the
+                // amount of segments - 1 + the length of the last segment.
+                var bezierLength = Points.Length > 1
+                    ? StepSize * (Points.Length - 2) +
+                      length(Points[Points.Length - 2].Position - Points[Points.Length - 1].Position)
+                    : 0;
+            }
         }
 
         /// <summary>
@@ -544,7 +662,6 @@ namespace Barmetler.RoadSystem
         public void Invalidate(bool update = true)
         {
             Valid = false;
-            // if (AutoGenerate && update) GenerateRoadMesh();
             if (AutoGenerate && update) GenerateRoadMesh();
         }
     }

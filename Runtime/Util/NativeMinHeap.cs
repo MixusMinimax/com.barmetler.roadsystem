@@ -4,7 +4,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 
-namespace Util
+namespace Barmetler.RoadSystem.Util
 {
     /// <summary>
     /// MinHeap, with support for updating values.

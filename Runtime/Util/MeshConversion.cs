@@ -1,12 +1,11 @@
-﻿using System.Linq;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using Unity.Mathematics;
 using UnityEngine;
 using static Unity.Mathematics.math;
 using float3 = Unity.Mathematics.float3;
 
-namespace Barmetler
+namespace Barmetler.RoadSystem.Util
 {
 	public static class MeshConversion
 	{

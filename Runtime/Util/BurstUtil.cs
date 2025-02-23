@@ -1,7 +1,7 @@
 ﻿using JetBrains.Annotations;
 using Unity.Burst;
 
-namespace Util
+namespace Barmetler.RoadSystem.Util
 {
     internal static class BurstUtil
     {

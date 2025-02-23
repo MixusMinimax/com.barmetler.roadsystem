@@ -1,7 +1,7 @@
 using System.Linq;
 using UnityEngine;
 
-namespace Barmetler.RoadSystem
+namespace Barmetler.RoadSystem.Util
 {
     /// <summary>
     /// Updates a LineRenderer based on a RoadSystemNavigator

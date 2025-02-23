@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Barmetler.RoadSystem.Util;
 using Unity.Profiling;
 using UnityEngine;
-using static Barmetler.Util.Functional;
+using static Barmetler.RoadSystem.Util.Functional;
 
 namespace Barmetler.RoadSystem
 {

@@ -1,9 +1,8 @@
 ﻿using System.Collections;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using UnityEngine;
 
-namespace Barmetler
+namespace Barmetler.RoadSystem.Util
 {
 	/// <summary>
 	/// Updates a value when you call the Update function, but asynchronously.
