@@ -1119,7 +1119,7 @@ namespace Barmetler.RoadSystem
         public void Invalidate(bool update = true)
         {
             Valid = false;
-            if (AutoGenerate && update) GenerateRoadMesh();
+            if (AutoGenerate && update) GenerateRoadMeshV2();
         }
     }
 }

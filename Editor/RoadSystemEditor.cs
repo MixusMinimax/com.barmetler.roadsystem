@@ -76,7 +76,33 @@ namespace Barmetler.RoadSystem
 				EditorUtility.SetDirty(roadSystem);
 				SceneView.RepaintAll();
 			}
-		}
+
+            GUILayout.Space(10);
+            GUILayout.Label("Road Mesh Generation", EditorStyles.boldLabel);
+            GUILayout.BeginHorizontal("", "box");
+            if (GUILayout.Button("V1", GUILayout.Height(32)))
+            {
+                var generators = roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
+                var start = Time.realtimeSinceStartup;
+                foreach (var g in generators)
+                {
+                    g.GenerateRoadMesh();
+                }
+                Debug.Log("Generated all road meshes in " + (Time.realtimeSinceStartup - start) + "s.");
+            }
+            if (GUILayout.Button("V2", GUILayout.Height(32)))
+            {
+                var generators = roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
+                var start = Time.realtimeSinceStartup;
+                foreach (var g in generators)
+                {
+                    g.GenerateRoadMeshV2();
+                }
+                Debug.Log("Generated all road meshes in " + (Time.realtimeSinceStartup - start) + "s.");
+            }
+
+            GUILayout.EndHorizontal();
+        }
 
 
 
