@@ -281,7 +281,7 @@ namespace Barmetler.RoadSystem
                     {
                         var pos = Vertices[v] + float3(0, 0, yOffset);
 
-                        ResultVertices.AddGrowth(pos);
+                        ResultVertices.Add(pos);
                     }
 
                     for (var channel = 0; channel < 8; ++channel)
@@ -295,9 +295,9 @@ namespace Barmetler.RoadSystem
                     {
                         for (var i = 0; i < indexCounts[submesh] / 3; ++i)
                         {
-                            ResultIndices.ElementAt(submesh).AddGrowth(Indices[submesh][3 * i] + z * vertexCount);
-                            ResultIndices.ElementAt(submesh).AddGrowth(Indices[submesh][3 * i + 1] + z * vertexCount);
-                            ResultIndices.ElementAt(submesh).AddGrowth(Indices[submesh][3 * i + 2] + z * vertexCount);
+                            ResultIndices.ElementAt(submesh).Add(Indices[submesh][3 * i] + z * vertexCount);
+                            ResultIndices.ElementAt(submesh).Add(Indices[submesh][3 * i + 1] + z * vertexCount);
+                            ResultIndices.ElementAt(submesh).Add(Indices[submesh][3 * i + 2] + z * vertexCount);
                         }
                     }
                 }
@@ -436,7 +436,7 @@ namespace Barmetler.RoadSystem
                             int ib;
                             if (!intersectedIndices.ContainsKey(int2(b, c)))
                             {
-                                vertices.AddGrowth(vb);
+                                vertices.Add(vb);
                                 ib = vertices.Length - 1;
                                 intersectedIndices[int2(b, c)] = ib;
                                 insertedB = true;
@@ -475,7 +475,7 @@ namespace Barmetler.RoadSystem
                             var a = vertexStart + sourceIndices[tri];
                             var b = vertexStart + sourceIndices[tri + 1];
                             var c = vertexStart + sourceIndices[tri + 2];
-                            // shuffle to make a and b inside
+                            // shuffle to make a and b outside
                             if (vertices[a].z <= maxZ)
                             {
                                 var t = a;
@@ -671,6 +671,17 @@ namespace Barmetler.RoadSystem
                     _ => throw new ArgumentOutOfRangeException()
                 };
 
+                var meshMinZ = SourceOrientation.forward switch
+                {
+                    MeshConversion.MeshOrientation.AxisDirection.X_POSITIVE => SourceBounds.min.x,
+                    MeshConversion.MeshOrientation.AxisDirection.X_NEGATIVE => SourceBounds.max.x,
+                    MeshConversion.MeshOrientation.AxisDirection.Y_POSITIVE => SourceBounds.min.y,
+                    MeshConversion.MeshOrientation.AxisDirection.Y_NEGATIVE => SourceBounds.max.y,
+                    MeshConversion.MeshOrientation.AxisDirection.Z_POSITIVE => SourceBounds.min.z,
+                    MeshConversion.MeshOrientation.AxisDirection.Z_NEGATIVE => SourceBounds.max.z,
+                    _ => throw new ArgumentOutOfRangeException()
+                };
+
                 var copyCount = (int)ceil(bezierLength / meshLength);
                 var sourceVertexCount = SourceMeshData.vertexCount;
                 var subMeshCount = SourceMeshData.subMeshCount;
@@ -718,7 +729,7 @@ namespace Barmetler.RoadSystem
                         var resultIndex = z * sourceVertexCount + sourceIndex;
                         sourceAttributeData.GetFloat3(sourceIndex, VertexAttribute.Position, out var position);
                         position = float3(dot(sourceRight, position), dot(sourceUp, position),
-                            dot(sourceForward, position) + zOffset);
+                            dot(sourceForward, position) - meshMinZ + zOffset);
                         sourceAttributeData.GetFloat3(sourceIndex, VertexAttribute.Normal, out var normal);
                         normal = float3(dot(sourceRight, normal), dot(sourceUp, normal), dot(sourceForward, normal));
                         sourceAttributeData.GetFloat4(sourceIndex, VertexAttribute.Tangent, out var tangent);
@@ -743,11 +754,113 @@ namespace Barmetler.RoadSystem
 
                     for (var subMeshIndex = 0; subMeshIndex < subMeshCount; ++subMeshIndex)
                     {
-                        var a = sourceIndices[subMeshIndex];
-                        var b = indices[subMeshIndex];
-                        b.ResizeUninitialized(b.Length + a.Length);
-                        for (var i = 0; i < a.Length; ++i)
-                            b[b.Length - a.Length + i] = (ushort)(z * sourceVertexCount + a[i]);
+                        var src = sourceIndices[subMeshIndex];
+                        var dst = indices[subMeshIndex];
+                        dst.ResizeUninitialized(dst.Length + src.Length);
+                        for (var i = 0; i < src.Length; ++i)
+                            dst[dst.Length - src.Length + i] = (ushort)(z * sourceVertexCount + src[i]);
+                    }
+                }
+
+                if (copyCount >= 1)
+                {
+                    var intersectedIndices = new NativeHashMap<int2, ushort>(128, Allocator.Temp);
+
+                    for (var subMeshIndex = 0; subMeshIndex < subMeshCount; ++subMeshIndex)
+                    {
+                        var src = sourceIndices[subMeshIndex];
+                        var dst = indices[subMeshIndex];
+                        var vertexOffset = (ushort)((copyCount - 1) * sourceVertexCount);
+                        for (var i = 0; i + 2 < src.Length; i += 3)
+                        {
+                            var ia = (ushort)(src[i] + vertexOffset);
+                            var ib = (ushort)(src[i + 1] + vertexOffset);
+                            var ic = (ushort)(src[i + 2] + vertexOffset);
+                            var a = positions[ia];
+                            var b = positions[ib];
+                            var c = positions[ic];
+                            var insideCount = 0;
+                            if (a.z <= bezierLength) ++insideCount;
+                            if (b.z <= bezierLength) ++insideCount;
+                            if (c.z <= bezierLength) ++insideCount;
+                            switch (insideCount)
+                            {
+                                case 3:
+                                    dst.Add(ia);
+                                    dst.Add(ib);
+                                    dst.Add(ic);
+                                    break;
+                                case 2:
+                                {
+                                    // shuffle to make a and b inside
+                                    if (a.z > bezierLength)
+                                    {
+                                        (ia, ib, ic) = (ib, ic, ia);
+                                        (a, b, c) = (b, c, a);
+                                    }
+                                    else if (b.z > bezierLength)
+                                    {
+                                        (ia, ib, ic) = (ic, ia, ib);
+                                        (a, b, c) = (c, a, b);
+                                    }
+
+                                    // between a and c on the clipping plane
+                                    AddBetween(
+                                        positions, normals, tangents, uvs, sourceAttributeData.UVChannelCount,
+                                        ia, ic, (bezierLength - a.z) / (c.z - a.z),
+                                        intersectedIndices, out var iac
+                                    );
+                                    // between b and c on the clipping plane
+                                    AddBetween(
+                                        positions, normals, tangents, uvs, sourceAttributeData.UVChannelCount,
+                                        ib, ic, (bezierLength - b.z) / (c.z - b.z),
+                                        intersectedIndices, out var ibc
+                                    );
+
+                                    dst.Add(ia);
+                                    dst.Add(ib);
+                                    dst.Add(iac);
+                                    dst.Add(iac);
+                                    dst.Add(ib);
+                                    dst.Add(ibc);
+
+                                    break;
+                                }
+                                case 1:
+                                {
+                                    // shuffle to make b and c outside
+                                    if (b.z <= bezierLength)
+                                    {
+                                        (ia, ib, ic) = (ib, ic, ia);
+                                        (a, b, c) = (b, c, a);
+                                    }
+                                    else if (c.z <= bezierLength)
+                                    {
+                                        (ia, ib, ic) = (ic, ia, ib);
+                                        (a, b, c) = (c, a, b);
+                                    }
+
+                                    // between a and b on the clipping plane
+                                    AddBetween(
+                                        positions, normals, tangents, uvs, sourceAttributeData.UVChannelCount,
+                                        ia, ib, (bezierLength - a.z) / (b.z - a.z),
+                                        intersectedIndices, out var iab
+                                    );
+                                    // between a and c on the clipping plane
+                                    AddBetween(
+                                        positions, normals, tangents, uvs, sourceAttributeData.UVChannelCount,
+                                        ia, ic, (bezierLength - a.z) / (c.z - a.z),
+                                        intersectedIndices, out var iac
+                                    );
+
+                                    dst.Add(ia);
+                                    dst.Add(iab);
+                                    dst.Add(iac);
+
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -836,6 +949,33 @@ namespace Barmetler.RoadSystem
                 uvs.Dispose();
                 sourceIndices.Dispose();
                 indices.Dispose();
+            }
+
+            private static void AddBetween(
+                NativeList<float3> positions,
+                NativeList<float3> normals,
+                NativeList<float4> tangents,
+                NativeList<float2> uvs,
+                int uvChannelCount,
+                ushort ia,
+                ushort ib,
+                float t,
+                NativeHashMap<int2, ushort> intersectedIndices,
+                out ushort resultIndex
+            )
+            {
+                if (intersectedIndices.TryGetValue(new int2(ia, ib), out var index))
+                {
+                    resultIndex = index;
+                    return;
+                }
+
+                positions.Add(lerp(positions[ia], positions[ib], t));
+                normals.Add(normalize(lerp(normals[ia], normals[ib], t)));
+                tangents.Add(float4(normalize(lerp(tangents[ia].xyz, tangents[ib].xyz, t)), 1));
+                for (var channel = 0; channel < uvChannelCount; ++channel)
+                    uvs.Add(lerp(uvs[ia * uvChannelCount + channel], uvs[ib * uvChannelCount + channel], t));
+                intersectedIndices[new int2(ia, ib)] = resultIndex = (ushort)(positions.Length - 1);
             }
 
             [StructLayout(LayoutKind.Sequential)]
