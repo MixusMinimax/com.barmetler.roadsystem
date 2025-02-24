@@ -864,6 +864,29 @@ namespace Barmetler.RoadSystem
                     }
                 }
 
+                // bend along bezier
+                var resultVertexCount = positions.Length;
+                for (var i = 0; i < resultVertexCount; ++i)
+                {
+                    var pos = positions[i];
+                    var pointIndex = clamp((int)floor(pos.z / StepSize), 0, Points.Length - 2);
+                    var weight = clamp(
+                        pointIndex < Points.Length - 2
+                            ? pos.z / StepSize - pointIndex
+                            : (pos.z - StepSize * pointIndex) /
+                              distance(Points[Points.Length - 1].Position, Points[Points.Length - 2].Position),
+                        0, 1);
+                    var centerPos = lerp(Points[pointIndex].Position, Points[pointIndex + 1].Position, weight);
+                    var forward = normalize(lerp(Points[pointIndex].Forward, Points[pointIndex + 1].Forward, weight));
+                    var up = normalize(lerp(Points[pointIndex].Normal, Points[pointIndex + 1].Normal, weight));
+                    var right = cross(up, forward);
+
+                    positions[i] = centerPos + right * pos.x + up * pos.y;
+                    normals[i] = right * normals[i].x + up * normals[i].y + forward * normals[i].z;
+                    tangents[i] = float4(
+                        right * tangents[i].x + up * tangents[i].y + forward * tangents[i].z, tangents[i].w);
+                }
+
                 var vertexAttributes = new NativeArray<VertexAttributeDescriptor>(
                     3 + sourceAttributeData.UVChannelCount,
                     Allocator.Temp, NativeArrayOptions.UninitializedMemory);
@@ -881,7 +904,6 @@ namespace Barmetler.RoadSystem
                     vertexAttributes[3 + i] = attr;
                 }
 
-                var resultVertexCount = positions.Length;
                 ResultMeshData.SetVertexBufferParams(resultVertexCount, vertexAttributes);
                 vertexAttributes.Dispose();
 
