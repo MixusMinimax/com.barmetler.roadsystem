@@ -77,7 +77,7 @@ namespace Barmetler.RoadSystem
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button("Only Construct Graph", GUILayout.Height(32)))
+                    if (GUILayout.Button("Construct Graph"))
                     {
                         var t = Time.realtimeSinceStartup;
                         _roadSystem.ConstructGraph();
@@ -86,23 +86,33 @@ namespace Barmetler.RoadSystem
                         SceneView.RepaintAll();
                     }
 
-                    if (GUILayout.Button("Rebuild All Roads", GUILayout.Height(32)))
+                    if (GUILayout.Button("Rebuild All Roads"))
                     {
-                        var sb = new StringBuilder();
-                        var t = Time.realtimeSinceStartup;
-                        _roadSystem.ConstructGraph();
-                        sb.AppendLine($"Constructed graph in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.");
                         var generators = _roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
-                        t = Time.realtimeSinceStartup;
+                        var t = Time.realtimeSinceStartup;
                         foreach (var g in generators)
                             g.GenerateRoadMesh();
-                        sb.Append(
-                            $"Generated {generators.Length} road meshes in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.");
-                        _meshGenerationTime = sb.ToString();
-
-                        EditorUtility.SetDirty(_roadSystem);
-                        SceneView.RepaintAll();
+                        _meshGenerationTime =
+                            $"Generated {generators.Length} road meshes in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.";
                     }
+                }
+
+                if (GUILayout.Button("Construct Graph + Rebuild All Roads", GUILayout.Height(32)))
+                {
+                    var sb = new StringBuilder();
+                    var t = Time.realtimeSinceStartup;
+                    _roadSystem.ConstructGraph();
+                    sb.AppendLine($"Constructed graph in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.");
+                    var generators = _roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
+                    t = Time.realtimeSinceStartup;
+                    foreach (var g in generators)
+                        g.GenerateRoadMesh();
+                    sb.Append(
+                        $"Generated {generators.Length} road meshes in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.");
+                    _meshGenerationTime = sb.ToString();
+
+                    EditorUtility.SetDirty(_roadSystem);
+                    SceneView.RepaintAll();
                 }
 
                 if (!string.IsNullOrEmpty(_meshGenerationTime))
