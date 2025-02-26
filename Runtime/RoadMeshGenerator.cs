@@ -926,6 +926,11 @@ namespace Barmetler.RoadSystem
                     boundsMax = max(boundsMax, position);
                 }
 
+                if (positions.Length == 0)
+                {
+                    boundsMin = boundsMax = 0;
+                }
+
                 ResultBounds[0] = boundsMin;
                 ResultBounds[1] = boundsMax;
 
