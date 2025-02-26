@@ -1,114 +1,119 @@
 using System.Linq;
+using System.Text;
 using Barmetler.RoadSystem.Util;
 using UnityEditor;
 using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
-	[CustomEditor(typeof(RoadSystem))]
-	public class RoadSystemEditor : Editor
-	{
-		private RoadSystem roadSystem;
+    [CustomEditor(typeof(RoadSystem))]
+    public class RoadSystemEditor : Editor
+    {
+        private RoadSystem _roadSystem;
 
-		private void OnSceneGUI()
-		{
-			Draw();
-		}
+        private void OnSceneGUI()
+        {
+            Draw();
+        }
 
-		private void Draw()
-		{
-			if (roadSystem.ShowDebugInfo)
-			{
-				var edges = roadSystem.GetGraphEdges();
-				Handles.color = Color.blue;
-				var style = new GUIStyle();
-				style.normal.textColor = Color.magenta;
-				foreach (var road in roadSystem.Roads)
-				{
-					if (!road) continue;
-					foreach (int segment in Enumerable.Range(0,road.NumSegments))
-					{
-						var points = road.GetPointsInSegment(segment).Select(e=>road.transform.TransformPoint(e)).ToArray();
-						Handles.DrawBezier(points[0], points[3], points[1], points[2], Color.green, null, 2f);
-					}
-				}
-				foreach (var edge in edges)
-				{
-					Handles.DrawLine(edge.start, edge.end, 2f);
-					if (roadSystem.ShowEdgeWeights)
-						Handles.Label((edge.start + edge.end) / 2, "Cost: " + edge.cost, style);
-				}
-			}
-		}
+        private void Draw()
+        {
+            if (!_roadSystem.ShowDebugInfo) return;
+            var edges = _roadSystem.GetGraphEdges();
+            Handles.color = Color.blue;
+            var style = new GUIStyle
+            {
+                normal =
+                {
+                    textColor = Color.magenta
+                }
+            };
+            foreach (var road in _roadSystem.Roads)
+            {
+                if (!road) continue;
+                foreach (var segment in Enumerable.Range(0, road.NumSegments))
+                {
+                    var points = road.GetPointsInSegment(segment).Select(e => road.transform.TransformPoint(e))
+                        .ToArray();
+                    Handles.DrawBezier(points[0], points[3], points[1], points[2], Color.green, null, 2f);
+                }
+            }
 
-		private int presetSelectedIndex = 0;
+            foreach (var edge in edges)
+            {
+                Handles.DrawLine(edge.start, edge.end, 2f);
+                if (_roadSystem.ShowEdgeWeights)
+                    Handles.Label((edge.start + edge.end) / 2, "Cost: " + edge.cost, style);
+            }
+        }
 
-		public override void OnInspectorGUI()
-		{
-			base.OnInspectorGUI();
+        private int _presetSelectedIndex;
+        private string _meshGenerationTime;
 
-			GUILayout.BeginHorizontal();
-			var options = MeshConversion.MeshOrientation.Presets.Keys.ToList();
-			presetSelectedIndex = EditorGUILayout.Popup("Source Orientation Preset", presetSelectedIndex, options.ToArray());
-			if (GUILayout.Button("Set All Roads"))
-			{
-				var generators = roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
-				int group = Undo.GetCurrentGroup();
-				Undo.RecordObjects(generators, "Change Source Orientation Preset on all Roads");
-				foreach (var g in generators)
-					g.settings.SourceOrientation.Preset = options[presetSelectedIndex];
-				roadSystem.RebuildAllRoads();
-				Undo.CollapseUndoOperations(group);
-			}
-			GUILayout.EndHorizontal();
-
-
-			if (GUILayout.Button("Construct Graph"))
-			{
-				roadSystem.ConstructGraph();
-				EditorUtility.SetDirty(roadSystem);
-				SceneView.RepaintAll();
-			}
-
-			if (GUILayout.Button("Rebuild All Roads"))
-			{
-				roadSystem.RebuildAllRoads();
-				EditorUtility.SetDirty(roadSystem);
-				SceneView.RepaintAll();
-			}
+        public override void OnInspectorGUI()
+        {
+            base.OnInspectorGUI();
 
             GUILayout.Space(10);
-            GUILayout.Label("Road Mesh Generation", EditorStyles.boldLabel);
-            GUILayout.BeginHorizontal("", "box");
-            if (GUILayout.Button("V1", GUILayout.Height(32)))
+            GUILayout.Label("Bulk Road Editing", EditorStyles.boldLabel);
+            using (new GUILayout.VerticalScope("", "box"))
             {
-                var generators = roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
-                var start = Time.realtimeSinceStartup;
-                foreach (var g in generators)
+                using (new GUILayout.HorizontalScope())
                 {
-                    g.GenerateRoadMesh();
+                    var options = MeshConversion.MeshOrientation.Presets.Keys.ToList();
+                    _presetSelectedIndex =
+                        EditorGUILayout.Popup("Source Orientation Preset", _presetSelectedIndex, options.ToArray());
+                    if (GUILayout.Button("Set All Roads"))
+                    {
+                        var generators = _roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
+                        var group = Undo.GetCurrentGroup();
+                        // ReSharper disable once CoVariantArrayConversion
+                        Undo.RecordObjects(generators, "Change Source Orientation Preset on all Roads");
+                        foreach (var g in generators)
+                            g.settings.SourceOrientation.Preset = options[_presetSelectedIndex];
+                        Undo.CollapseUndoOperations(group);
+                    }
                 }
-                Debug.Log("Generated all road meshes in " + (Time.realtimeSinceStartup - start) + "s.");
-            }
-            if (GUILayout.Button("V2", GUILayout.Height(32)))
-            {
-                var generators = roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
-                var start = Time.realtimeSinceStartup;
-                foreach (var g in generators)
-                {
-                    g.GenerateRoadMeshV2();
-                }
-                Debug.Log("Generated all road meshes in " + (Time.realtimeSinceStartup - start) + "s.");
-            }
 
-            GUILayout.EndHorizontal();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    if (GUILayout.Button("Only Construct Graph", GUILayout.Height(32)))
+                    {
+                        var t = Time.realtimeSinceStartup;
+                        _roadSystem.ConstructGraph();
+                        _meshGenerationTime = $"Constructed graph in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.";
+                        EditorUtility.SetDirty(_roadSystem);
+                        SceneView.RepaintAll();
+                    }
+
+                    if (GUILayout.Button("Rebuild All Roads", GUILayout.Height(32)))
+                    {
+                        var sb = new StringBuilder();
+                        var t = Time.realtimeSinceStartup;
+                        _roadSystem.ConstructGraph();
+                        sb.AppendLine($"Constructed graph in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.");
+                        var generators = _roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
+                        t = Time.realtimeSinceStartup;
+                        foreach (var g in generators)
+                            g.GenerateRoadMesh();
+                        sb.Append(
+                            $"Generated {generators.Length} road meshes in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.");
+                        _meshGenerationTime = sb.ToString();
+
+                        EditorUtility.SetDirty(_roadSystem);
+                        SceneView.RepaintAll();
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(_meshGenerationTime))
+                    EditorGUILayout.HelpBox(_meshGenerationTime, MessageType.Info);
+            }
         }
 
 
-
-		private void OnEnable()
-		{
-			roadSystem = (RoadSystem)target;
-		}
-	}
+        private void OnEnable()
+        {
+            _roadSystem = (RoadSystem)target;
+        }
+    }
 }
