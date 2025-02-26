@@ -15,21 +15,21 @@ namespace Barmetler.RoadSystem
 
         [MenuItem("Tools/RoadSystem/Remove Point [backspace]", validate = true)]
         public static bool MenuPointIsSelected() =>
-            ActiveEditor is RoadEditor editor &&
+            ActiveEditor is { } editor &&
             editor.SelectedAnchorPoint != -1;
 
         public static bool MenuEndPointIsSelected() =>
-            ActiveEditor is RoadEditor editor &&
-            editor.IsEndPoint(editor.SelectedAnchorPoint, YesNoMaybe.MAYBE);
+            ActiveEditor is { } editor &&
+            editor.IsEndPoint(editor.SelectedAnchorPoint);
 
-        [MenuItem("Tools/RoadSystem/Unlink Point %u", validate = true)]
+        [MenuItem("Tools/RoadSystem/Unlink Point", validate = true)]
         public static bool MenuEndPointIsSelectedAndConnected() =>
-            ActiveEditor is RoadEditor editor &&
+            ActiveEditor is { } editor &&
             editor.IsEndPoint(editor.SelectedAnchorPoint, YesNoMaybe.YES);
 
         [MenuItem("Tools/RoadSystem/Extrude", validate = true)]
         public static bool MenuEndPointIsSelectedAndNotConnected() =>
-            ActiveEditor is RoadEditor editor &&
+            ActiveEditor is { } editor &&
             editor.IsEndPoint(editor.SelectedAnchorPoint, YesNoMaybe.NO);
 
         #endregion Validation
@@ -40,7 +40,7 @@ namespace Barmetler.RoadSystem
         public static void CreateRoadSystem()
         {
             var selected = Selection.activeGameObject;
-            Transform parent = null;
+            Transform parent;
 
             if (!selected)
                 parent = null;
@@ -55,7 +55,7 @@ namespace Barmetler.RoadSystem
 
             var newObject = new GameObject("RoadSystem");
             Undo.RegisterCreatedObjectUndo(newObject, "Create new Road System");
-            var roadSystem = newObject.AddComponent<RoadSystem>();
+            newObject.AddComponent<RoadSystem>();
 
             GameObjectUtility.SetParentAndAlign(newObject, parent ? parent.gameObject : null);
 
@@ -105,12 +105,12 @@ namespace Barmetler.RoadSystem
             else
                 parent = selected.transform;
 
-            if (selected?.GetComponent<Road>() is Road road)
+            if (selected?.GetComponent<Road>() is { } road)
             {
                 var isStart = RoadLinkTool.ActiveInstance
                     ? ((RoadLinkTool.ActivePoint as RoadLinkTool.RoadPoint)?.isStart ?? false)
                     : (RoadEditor.GetEditor(selected).SelectedAnchorPoint <= road.NumSegments / 2);
-                if (!(isStart ? road.start : road.end) && (newObject.GetComponentInChildren<RoadAnchor>() is RoadAnchor anchor))
+                if (!(isStart ? road.start : road.end) && (newObject.GetComponentInChildren<RoadAnchor>() is { } anchor))
                 {
                     newObject.transform.parent = parent;
                     var position = road.transform.TransformPoint(isStart ? road[0] : road[-1]);
@@ -164,6 +164,7 @@ namespace Barmetler.RoadSystem
             if (RoadSystemSettings.Instance.NewRoadPrefab)
             {
                 newObject = Instantiate(RoadSystemSettings.Instance.NewRoadPrefab);
+                // ReSharper disable once AssignmentInConditionalExpression
                 if (road = newObject.GetComponent<Road>())
                     road.start = road.end = null;
             }
@@ -188,7 +189,7 @@ namespace Barmetler.RoadSystem
 
             GameObjectUtility.SetParentAndAlign(newObject, parent ? parent.gameObject : null);
 
-            if (selected && selected.GetComponent<RoadAnchor>() is RoadAnchor anchor && !anchor.GetConnectedRoad())
+            if (selected && selected.GetComponent<RoadAnchor>() is { } anchor && !anchor.GetConnectedRoad())
             {
                 road.start = anchor;
                 road.RefreshEndPoints();
@@ -198,7 +199,7 @@ namespace Barmetler.RoadSystem
                 road.MoveNormal(1, road.GetNormal(0));
             }
 
-            if (newObject.GetComponent<RoadMeshGenerator>() is RoadMeshGenerator roadMeshGenerator)
+            if (newObject.GetComponent<RoadMeshGenerator>() is { } roadMeshGenerator)
                 roadMeshGenerator.GenerateRoadMesh();
 
             Selection.activeGameObject = newObject;

@@ -74,8 +74,14 @@ namespace Barmetler.RoadSystem
         /// <summary>
         /// Generate the mesh based on the curve described in the Road component.
         /// </summary>
-        public void GenerateRoadMesh()
+        public void GenerateRoadMesh(int version = 2)
         {
+            if (version == 2)
+            {
+                GenerateRoadMeshV2();
+                return;
+            }
+
             OnValidate();
 
             if (!road) road = GetComponent<Road>();
