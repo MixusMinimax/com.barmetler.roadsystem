@@ -54,9 +54,10 @@ namespace Barmetler.RoadSystem
                     break;
                 t -= Vector3.Dot(delta, dp) / Vector3.Dot(dp, dp);
             }
+
             return t;
         }
-        
+
         /// <summary>
         /// Subdivide a cubic bezier curve.
         /// </summary>
@@ -93,9 +94,17 @@ namespace Barmetler.RoadSystem
         /// </summary>
         public struct OrientedPoint
         {
-            public Vector3 position; public Vector3 forward; public Vector3 normal;
+            public Vector3 position;
+            public Vector3 forward;
+            public Vector3 normal;
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public OrientedPoint(Vector3 p, Vector3 f, Vector3 n) { position = p; forward = f; normal = n; }
+            public OrientedPoint(Vector3 p, Vector3 f, Vector3 n)
+            {
+                position = p;
+                forward = f;
+                normal = n;
+            }
 
             public OrientedPoint ToWorldSpace(Transform transform)
             {
@@ -153,23 +162,34 @@ namespace Barmetler.RoadSystem
         [BurstCompile(CompileSynchronously = true)]
         private struct GetEvenlySpacedPointsBurstJob : IJob
         {
-            [ReadOnly] public NativeArray<Vector3> Points;
-            [ReadOnly] public NativeArray<Vector3> Normals;
-            [ReadOnly] public float Spacing;
-            [ReadOnly] public float Resolution;
+            [ReadOnly]
+            public NativeArray<Vector3> Points;
+
+            [ReadOnly]
+            public NativeArray<Vector3> Normals;
+
+            [ReadOnly]
+            public float Spacing;
+
+            [ReadOnly]
+            public float Resolution;
+
             public NativeList<OrientedPoint> Result;
+
             /// <summary>
             /// 1-element array, in order to box the data as Bounds is a value type.
             /// </summary>
             public NativeArray<Bounds> Bounds;
+
             public NativeList<Bounds> BoundingBoxes;
+
             /// <summary>
             /// 1-element array, in order to box the data.
             /// </summary>
             public NativeArray<float> LineLength;
 
             private int _numPoints;
-            
+
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private int LoopIndex(int i)
             {
@@ -179,7 +199,7 @@ namespace Barmetler.RoadSystem
             private struct Segment
             {
                 public float3 p0, p1, p2, p3;
-                
+
                 [MethodImpl(MethodImplOptions.AggressiveInlining)]
                 public Segment(float3 p0, float3 p1, float3 p2, float3 p3)
                 {
@@ -188,6 +208,7 @@ namespace Barmetler.RoadSystem
                     this.p2 = p2;
                     this.p3 = p3;
                 }
+
                 public float3 this[int i] => i switch
                 {
                     0 => p0,
@@ -203,14 +224,14 @@ namespace Barmetler.RoadSystem
             {
                 return new Segment(Points[i * 3], Points[i * 3 + 1], Points[i * 3 + 2], Points[LoopIndex(i * 3 + 3)]);
             }
-            
+
             public void Execute()
             {
                 _numPoints = Points.Length;
                 var numSegments = _numPoints / 3;
                 if (Normals.Length < numSegments + 1)
                     throw new ArgumentException("not enough normals!");
-                
+
                 var boundsValue = Bounds[0];
                 boundsValue.min = Vector3.positiveInfinity;
                 boundsValue.max = Vector3.negativeInfinity;
@@ -330,6 +351,7 @@ namespace Barmetler.RoadSystem
                     boundsValue.Encapsulate(Points[LoopIndex(-1)]);
                     goto end_cleanup;
                 }
+
                 var end = Result[Result.Length - 1];
                 end.position = Points[LoopIndex(-1)];
                 end.normal = Normals[Normals.Length - 1];

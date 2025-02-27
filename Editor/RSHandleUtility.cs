@@ -7,7 +7,8 @@ namespace Barmetler.RoadSystem
 {
     public static class RSHandleUtility
     {
-        public static void DrawGridCircles(Vector3 origin, Vector3 right, Vector3 forward, float lineGap, IEnumerable<(Vector3 position, float radius)> centers)
+        public static void DrawGridCircles(Vector3 origin, Vector3 right, Vector3 forward, float lineGap,
+            IEnumerable<(Vector3 position, float radius)> centers)
         {
             foreach (var center in centers.Select(center =>
                      {
@@ -17,13 +18,18 @@ namespace Barmetler.RoadSystem
                          return (uv: new Vector2(u, v), center.radius);
                      }))
             {
-                for (float v = Mathf.CeilToInt((center.uv.y - center.radius) / lineGap) * lineGap; v <= center.uv.y + center.radius; v += lineGap)
+                for (float v = Mathf.CeilToInt((center.uv.y - center.radius) / lineGap) * lineGap;
+                     v <= center.uv.y + center.radius;
+                     v += lineGap)
                 {
                     var pos = origin + forward * v + right * center.uv.x;
                     var width = Mathf.Sqrt(Mathf.Pow(center.radius, 2) - Mathf.Pow(v - center.uv.y, 2));
                     Handles.DrawLine(pos - right * width, pos + right * width);
                 }
-                for (float u = Mathf.CeilToInt((center.uv.x - center.radius) / lineGap) * lineGap; u <= center.uv.x + center.radius; u += lineGap)
+
+                for (float u = Mathf.CeilToInt((center.uv.x - center.radius) / lineGap) * lineGap;
+                     u <= center.uv.x + center.radius;
+                     u += lineGap)
                 {
                     var pos = origin + forward * center.uv.y + right * u;
                     var width = Mathf.Sqrt(Mathf.Pow(center.radius, 2) - Mathf.Pow(u - center.uv.x, 2));

@@ -77,10 +77,11 @@ namespace Barmetler.RoadSystem.Splines
         }
 #else
         [MenuItem("Tools/RoadSystem/Create or Update Spline(s) from Road (requires com.unity.splines)")]
-        public static void ConvertRoadToSpline() {
+        public static void ConvertRoadToSpline()
+        {
             Debug.Log("asd");
         }
-        
+
         [MenuItem("Tools/RoadSystem/Create or Update Spline(s) from Road (requires com.unity.splines)", true)]
         public static bool ConvertRoadToSplineValidate() => false;
 #endif

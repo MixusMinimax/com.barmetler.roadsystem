@@ -97,9 +97,9 @@ namespace Barmetler.RoadSystem.Util
             if (priority < oldPriority) SiftUp(i);
             else SiftDown(i);
         }
-        
+
         public bool Contains(int index) => _indices[index] != -1;
-        
+
         [WriteAccessRequired]
         public void InsertOrUpdate(int index, float priority)
         {

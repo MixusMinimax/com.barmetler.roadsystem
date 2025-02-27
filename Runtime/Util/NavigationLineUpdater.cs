@@ -11,8 +11,10 @@ namespace Barmetler.RoadSystem.Util
     {
         [SerializeField]
         private RoadSystemNavigator navigator;
+
         [SerializeField]
         private float Tolerance = 0.1f;
+
         [SerializeField]
         private float LineWidth = 2;
 

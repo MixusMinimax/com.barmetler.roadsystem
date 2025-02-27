@@ -6,6 +6,7 @@ namespace Barmetler.RoadSystem
     {
         [SerializeField]
         private Road road;
+
         [SerializeField, HideInInspector]
         bool isStart;
 

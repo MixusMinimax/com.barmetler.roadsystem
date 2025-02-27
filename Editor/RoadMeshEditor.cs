@@ -8,22 +8,22 @@ namespace Barmetler.RoadSystem
     [CustomEditor(typeof(RoadMeshGenerator))]
     public class RoadMeshEditor : Editor
     {
-        private RoadMeshGenerator roadMeshGenerator;
+        private RoadMeshGenerator _roadMeshGenerator;
 
         public override void OnInspectorGUI()
         {
             EditorGUI.BeginChangeCheck();
             base.OnInspectorGUI();
-            if (EditorGUI.EndChangeCheck() && roadMeshGenerator.AutoGenerate)
-                roadMeshGenerator.GenerateRoadMesh();
+            if (EditorGUI.EndChangeCheck() && _roadMeshGenerator.AutoGenerate)
+                _roadMeshGenerator.GenerateRoadMesh();
 
             GUILayout.Space(10);
-            Rect rect = EditorGUILayout.GetControlRect(false, 1);
+            var rect = EditorGUILayout.GetControlRect(false, 1);
             rect.height = 1;
             EditorGUI.DrawRect(rect, new Color(0.5f, 0.5f, 0.5f, 1));
             GUILayout.Space(10);
 
-            var preset = roadMeshGenerator.settings.SourceOrientation.Preset;
+            var preset = _roadMeshGenerator.settings.SourceOrientation.Preset;
             var options = MeshConversion.MeshOrientation.Presets.Keys.Append("CUSTOM").ToList();
             var selected = options.IndexOf(preset);
             if (selected != options.Count - 1) options.RemoveAt(options.Count - 1);
@@ -38,9 +38,9 @@ namespace Barmetler.RoadSystem
             );
             if (index != selected)
             {
-                Undo.RecordObject(roadMeshGenerator, "Change Source Orientation Preset");
-                roadMeshGenerator.settings.SourceOrientation.Preset = options[index];
-                if (roadMeshGenerator.AutoGenerate) roadMeshGenerator.GenerateRoadMesh();
+                Undo.RecordObject(_roadMeshGenerator, "Change Source Orientation Preset");
+                _roadMeshGenerator.settings.SourceOrientation.Preset = options[index];
+                if (_roadMeshGenerator.AutoGenerate) _roadMeshGenerator.GenerateRoadMesh();
             }
 
             GUILayout.BeginHorizontal();
@@ -51,11 +51,11 @@ namespace Barmetler.RoadSystem
                 ),
                 GUILayout.Width(EditorGUIUtility.labelWidth)
             );
-            bool autoGenerate = GUILayout.Toggle(roadMeshGenerator.AutoGenerate, "");
-            if (autoGenerate != roadMeshGenerator.AutoGenerate)
+            var autoGenerate = GUILayout.Toggle(_roadMeshGenerator.AutoGenerate, "");
+            if (autoGenerate != _roadMeshGenerator.AutoGenerate)
             {
-                Undo.RecordObject(roadMeshGenerator, "Toggle Auto Generate");
-                roadMeshGenerator.AutoGenerate = autoGenerate;
+                Undo.RecordObject(_roadMeshGenerator, "Toggle Auto Generate");
+                _roadMeshGenerator.AutoGenerate = autoGenerate;
             }
 
             GUILayout.EndHorizontal();
@@ -63,21 +63,14 @@ namespace Barmetler.RoadSystem
             GUILayout.Space(10);
             if (GUILayout.Button(new GUIContent("Generate Mesh", ""), GUILayout.Height(50)))
             {
-                Undo.RecordObject(roadMeshGenerator.gameObject, "Generate Mesh");
-                roadMeshGenerator.GenerateRoadMesh();
-            }
-
-            GUILayout.Space(10);
-            if (GUILayout.Button(new GUIContent("Generate Mesh v2", ""), GUILayout.Height(50)))
-            {
-                Undo.RecordObject(roadMeshGenerator.gameObject, "Generate Mesh v2");
-                roadMeshGenerator.GenerateRoadMeshV2();
+                Undo.RecordObject(_roadMeshGenerator.gameObject, "Generate Mesh");
+                _roadMeshGenerator.GenerateRoadMesh();
             }
         }
 
         private void OnEnable()
         {
-            roadMeshGenerator = (RoadMeshGenerator)target;
+            _roadMeshGenerator = (RoadMeshGenerator)target;
         }
     }
 }

@@ -10,8 +10,9 @@ namespace Barmetler.RoadSystem
         private static RoadEditor ActiveEditor => RoadEditor.GetEditor(Selection.activeGameObject);
 
         #region Validation
+
         public static bool MenuRoadIsSelected() =>
-                ActiveEditor;
+            ActiveEditor;
 
         [MenuItem("Tools/RoadSystem/Remove Point [backspace]", validate = true)]
         public static bool MenuPointIsSelected() =>
@@ -110,18 +111,27 @@ namespace Barmetler.RoadSystem
                 var isStart = RoadLinkTool.ActiveInstance
                     ? ((RoadLinkTool.ActivePoint as RoadLinkTool.RoadPoint)?.isStart ?? false)
                     : (RoadEditor.GetEditor(selected).SelectedAnchorPoint <= road.NumSegments / 2);
-                if (!(isStart ? road.start : road.end) && (newObject.GetComponentInChildren<RoadAnchor>() is { } anchor))
+                if (!(isStart ? road.start : road.end) &&
+                    (newObject.GetComponentInChildren<RoadAnchor>() is { } anchor))
                 {
                     newObject.transform.parent = parent;
                     var position = road.transform.TransformPoint(isStart ? road[0] : road[-1]);
-                    var normal = road.transform.TransformDirection(isStart ? road.GetNormal(0) : road.GetNormal(road.NumSegments));
-                    var forward = road.transform.TransformDirection(isStart ? (road[1] - road[0]).normalized : (road[-2] - road[-1]).normalized);
+                    var normal =
+                        road.transform.TransformDirection(
+                            isStart ? road.GetNormal(0) : road.GetNormal(road.NumSegments));
+                    var forward =
+                        road.transform.TransformDirection(isStart
+                            ? (road[1] - road[0]).normalized
+                            : (road[-2] - road[-1]).normalized);
                     var orientation = Quaternion.LookRotation(forward, normal);
                     var relative = newObject.transform.localToWorldMatrix * anchor.transform.worldToLocalMatrix;
-                    var targetOrientation = Quaternion.LookRotation(relative.GetColumn(2), relative.GetColumn(1)) * orientation;
+                    var targetOrientation = Quaternion.LookRotation(relative.GetColumn(2), relative.GetColumn(1)) *
+                                            orientation;
                     newObject.transform.rotation = targetOrientation;
-                    newObject.transform.position = newObject.transform.TransformPoint(anchor.transform.InverseTransformPoint(position));
-                    if (isStart) road.start = anchor; else road.end = anchor;
+                    newObject.transform.position =
+                        newObject.transform.TransformPoint(anchor.transform.InverseTransformPoint(position));
+                    if (isStart) road.start = anchor;
+                    else road.end = anchor;
                     road.RefreshEndPoints();
                     if (RoadLinkTool.ActiveInstance)
                     {
@@ -255,6 +265,7 @@ namespace Barmetler.RoadSystem
             {
                 ToolManager.SetActiveTool<RoadLinkTool>();
             }
+
             ToolManager.SetActiveTool<RoadLinkTool>();
         }
 

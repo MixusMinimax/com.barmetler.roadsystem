@@ -14,9 +14,14 @@ namespace Barmetler.RoadSystem
     [ExecuteAlways]
     public class RoadSystem : MonoBehaviour
     {
-        [SerializeField, HideInInspector] private Intersection[] intersections;
-        [SerializeField, HideInInspector] private Road[] roads;
-        [SerializeField, HideInInspector] private Graph graph = new Graph();
+        [SerializeField, HideInInspector]
+        private Intersection[] intersections;
+
+        [SerializeField, HideInInspector]
+        private Road[] roads;
+
+        [SerializeField, HideInInspector]
+        private Graph graph = new Graph();
 
         public bool ShowDebugInfo = true;
         public bool ShowEdgeWeights = true;
@@ -306,7 +311,7 @@ namespace Barmetler.RoadSystem
                             if (isFromStart ? dist <= distanceAlongRoad : dist >= distanceAlongRoad)
                                 pathPoints.Add(roadPoints[i].ToWorldSpace(road.transform));
                         }
-                    
+
                         // added points need to be reversed if we come from road.end to node on road
                         // or from node on road to road.start
                         var isReverse = isStart == isFromStart;
@@ -446,9 +451,14 @@ namespace Barmetler.RoadSystem
                 }
             }
 
-            [SerializeField] public RoadSystem roadSystem;
-            [SerializeField] private List<Node> nodes = new List<Node>();
-            [SerializeField] private TwoDimensionalArray<float> weights = new TwoDimensionalArray<float>(0, 0);
+            [SerializeField]
+            public RoadSystem roadSystem;
+
+            [SerializeField]
+            private List<Node> nodes = new List<Node>();
+
+            [SerializeField]
+            private TwoDimensionalArray<float> weights = new TwoDimensionalArray<float>(0, 0);
 
             private TwoDimensionalNativeArray<float> _weightsNativeArray;
 

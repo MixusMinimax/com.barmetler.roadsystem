@@ -16,7 +16,8 @@ namespace Barmetler.RoadSystem.Settings
         private void OnEnable()
         {
             minSize = new Vector2(350, 200);
-            helpString = "Selecte a prefab for the new road! You can also set that prefab in [Project Settings/MB RoadSystem]";
+            helpString =
+                "Selecte a prefab for the new road! You can also set that prefab in [Project Settings/MB RoadSystem]";
             road = RoadSystemSettings.Instance.NewRoadPrefab;
         }
 
