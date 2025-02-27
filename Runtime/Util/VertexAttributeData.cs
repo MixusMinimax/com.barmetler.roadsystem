@@ -34,16 +34,16 @@ namespace Barmetler.RoadSystem.Util
             _sourceMeshData = sourceMeshData;
             _sourceVertexAttributes = sourceVertexAttributes;
             _stream0 = _sourceMeshData.vertexBufferCount >= 1
-                ? _sourceMeshData.GetVertexData<byte>(0)
+                ? _sourceMeshData.GetVertexData<byte>(stream: 0)
                 : default;
             _stream1 = _sourceMeshData.vertexBufferCount >= 2
-                ? _sourceMeshData.GetVertexData<byte>(1)
+                ? _sourceMeshData.GetVertexData<byte>(stream: 1)
                 : default;
             _stream2 = _sourceMeshData.vertexBufferCount >= 3
-                ? _sourceMeshData.GetVertexData<byte>(2)
+                ? _sourceMeshData.GetVertexData<byte>(stream: 2)
                 : default;
             _stream3 = _sourceMeshData.vertexBufferCount >= 4
-                ? _sourceMeshData.GetVertexData<byte>(3)
+                ? _sourceMeshData.GetVertexData<byte>(stream: 3)
                 : default;
             _stream0Stride = 0;
             _stream1Stride = 0;

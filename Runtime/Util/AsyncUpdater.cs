@@ -12,29 +12,29 @@ namespace Barmetler.RoadSystem.Util
     /// <typeparam name="T"></typeparam>
     public class AsyncUpdater<T>
     {
-        private T data;
-        private readonly Func<T> updater;
+        private T _data;
+        private readonly Func<T> _updater;
 
-        private readonly MonoBehaviour mb;
-        private readonly object dispatcherLock = new object();
-        private readonly object dataLock = new object();
-        private bool coroutineRunning = false;
-        private bool updateQueued = false;
-        private readonly float interval = 0;
-        private readonly Stopwatch sw = new Stopwatch();
+        private readonly MonoBehaviour _mb;
+        private readonly object _dispatcherLock = new object();
+        private readonly object _dataLock = new object();
+        private bool _coroutineRunning;
+        private bool _updateQueued;
+        private readonly float _interval;
+        private readonly Stopwatch _sw = new Stopwatch();
 
         public AsyncUpdater(MonoBehaviour mb, Func<T> updater, T initialData, float interval = 0)
         {
-            this.mb = mb;
-            this.updater = updater;
-            this.interval = interval;
-            data = initialData;
+            _mb = mb;
+            _updater = updater;
+            _interval = interval;
+            _data = initialData;
         }
 
         public AsyncUpdater(MonoBehaviour mb, Func<T> updater)
         {
-            this.mb = mb;
-            this.updater = updater;
+            _mb = mb;
+            _updater = updater;
         }
 
         /// <summary>
@@ -42,7 +42,7 @@ namespace Barmetler.RoadSystem.Util
         /// </summary>
         public void Update()
         {
-            updateQueued = true;
+            _updateQueued = true;
             MaybeDispatchCoroutine();
         }
 
@@ -52,37 +52,37 @@ namespace Barmetler.RoadSystem.Util
         public T GetData()
         {
             T d;
-            lock (dataLock)
-                d = data;
+            lock (_dataLock)
+                d = _data;
             return d;
         }
 
         private void MaybeDispatchCoroutine()
         {
-            lock (dispatcherLock)
+            lock (_dispatcherLock)
             {
-                if (!coroutineRunning && updateQueued)
+                if (!_coroutineRunning && _updateQueued)
                 {
-                    updateQueued = false;
-                    coroutineRunning = true;
-                    mb.StartCoroutine(CallUpdater());
+                    _updateQueued = false;
+                    _coroutineRunning = true;
+                    _mb.StartCoroutine(CallUpdater());
                 }
             }
         }
 
         private IEnumerator CallUpdater()
         {
-            sw.Restart();
-            var newData = updater();
-            sw.Stop();
-            var secondsToWait = (float)(interval - sw.ElapsedMilliseconds / 1e6);
+            _sw.Restart();
+            var newData = _updater();
+            _sw.Stop();
+            var secondsToWait = (float)(_interval - _sw.ElapsedMilliseconds / 1e6);
             if (secondsToWait > 0)
                 yield return new WaitForSeconds(secondsToWait);
 
-            lock (dataLock)
-                data = newData;
+            lock (_dataLock)
+                _data = newData;
 
-            coroutineRunning = false;
+            _coroutineRunning = false;
             MaybeDispatchCoroutine();
             yield return null;
         }

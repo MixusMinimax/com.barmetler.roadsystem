@@ -10,15 +10,15 @@ namespace Barmetler.RoadSystem
     [EditorTool("RoadSystem/Road Link Tool")]
     public class RoadLinkTool : EditorTool
     {
-        private GUIContent m_IconContent;
+        private GUIContent _iconContent;
 
-        public override GUIContent toolbarIcon => m_IconContent;
+        public override GUIContent toolbarIcon => _iconContent;
 
-        public static RoadLinkTool ActiveInstance { get; private set; } = null;
+        public static RoadLinkTool ActiveInstance { get; private set; }
 
         public override void OnActivated()
         {
-            m_IconContent ??= new GUIContent(EditorGUIUtility.IconContent("Linked@2x"))
+            _iconContent ??= new GUIContent(EditorGUIUtility.IconContent("Linked@2x"))
             {
                 text = "Road Link Tool",
                 tooltip = "Used to link and unlink roads from anchor points.",
@@ -31,10 +31,10 @@ namespace Barmetler.RoadSystem
 
         public override void OnWillBeDeactivated()
         {
-            if (activePoint is AnchorPoint pt)
+            if (ActivePoint is AnchorPoint pt)
                 UnityEditor.Selection.activeObject = pt.anchor.GetConnectedRoad();
             else
-                UnityEditor.Selection.activeObject = activePoint?.gameObject;
+                UnityEditor.Selection.activeObject = ActivePoint?.gameObject;
 
             ActiveInstance = null;
             Undo.undoRedoPerformed -= OnUndoRedo;
@@ -47,7 +47,7 @@ namespace Barmetler.RoadSystem
             UNLINKING
         }
 
-        private ToolState toolState = ToolState.SELECTING;
+        private ToolState _toolState = ToolState.SELECTING;
 
         public interface IPoint : IEquatable<IPoint>
         {
@@ -99,39 +99,38 @@ namespace Barmetler.RoadSystem
             }
         }
 
-        private static IPoint activePoint = null;
+        public static IPoint ActivePoint { get; private set; }
 
-        public static IPoint ActivePoint => activePoint;
-        public static GameObject Selection => activePoint?.gameObject;
+        public static GameObject Selection => ActivePoint?.gameObject;
 
         public static void Select(Road road, bool isStart)
         {
             if (isStart ? road.start : road.end)
-                activePoint = new AnchorPoint { anchor = isStart ? road.start : road.end };
+                ActivePoint = new AnchorPoint { anchor = isStart ? road.start : road.end };
             else
-                activePoint = new RoadPoint { road = road, isStart = isStart };
+                ActivePoint = new RoadPoint { road = road, isStart = isStart };
         }
 
         public static void Select(RoadAnchor anchor)
         {
             if (anchor)
-                activePoint = new AnchorPoint { anchor = anchor };
+                ActivePoint = new AnchorPoint { anchor = anchor };
             else
-                activePoint = null;
+                ActivePoint = null;
         }
 
         public override void OnToolGUI(EditorWindow window)
         {
             var e = Event.current;
 
-            if (activePoint != null && !activePoint.gameObject) activePoint = null;
+            if (ActivePoint != null && !ActivePoint.gameObject) ActivePoint = null;
 
-            if (activePoint != null && !activePoint.IsConnected && e.shift)
-                toolState = ToolState.LINKING;
+            if (ActivePoint != null && !ActivePoint.IsConnected && e.shift)
+                _toolState = ToolState.LINKING;
             else if (e.control && !e.shift)
-                toolState = ToolState.UNLINKING;
+                _toolState = ToolState.UNLINKING;
             else
-                toolState = ToolState.SELECTING;
+                _toolState = ToolState.SELECTING;
 
             var buttons = new List<IPoint>();
 
@@ -151,19 +150,86 @@ namespace Barmetler.RoadSystem
                     buttons.Add(new RoadPoint { road = road, isStart = false });
             }
 
-            bool activeIsRoad = activePoint is RoadPoint activeRoadPoint;
+            var activeIsRoad = ActivePoint is RoadPoint;
 
-            bool filter(IPoint point)
+            buttons = buttons
+                .Where(Filter)
+                .OrderByDescending(e =>
+                    Vector3.Dot(Camera.current.transform.forward, e.position - Camera.current.transform.position))
+                .ToList();
+
+            const float size = 1.5f;
+            foreach (var point in buttons)
             {
-                switch (toolState)
+                var position = point.position - point.rotation * (Vector3.forward * size / 2);
+                Handles.color = Color.red + 0.7f * Color.white;
+                switch (point)
+                {
+                    case RoadPoint _:
+                        Handles.color = Color.cyan;
+                        break;
+                    case AnchorPoint anchor1 when !anchor1.anchor.GetConnectedRoad():
+                        Handles.color = Color.blue;
+                        break;
+                    case AnchorPoint anchor2 when anchor2.anchor.GetConnectedRoad():
+                        position = point.position;
+                        break;
+                }
+
+                if (_toolState == ToolState.UNLINKING)
+                    Handles.color = Color.red * .5f + Color.yellow * .5f;
+
+                if (Handles.Button(position, point.rotation, size, size * 1.5f, Handles.CubeHandleCap))
+                {
+                    switch (_toolState)
+                    {
+                        case ToolState.SELECTING:
+                            ActivePoint = point;
+                            break;
+
+                        case ToolState.LINKING:
+                            Link(ActivePoint, point, e.control);
+                            break;
+
+                        case ToolState.UNLINKING:
+                            Unlink(point);
+                            break;
+                    }
+                }
+            }
+
+            switch (_toolState)
+            {
+                case ToolState.SELECTING:
+                case ToolState.LINKING:
+                    if (ActivePoint != null)
+                    {
+                        var position = ActivePoint.position - ActivePoint.rotation * (Vector3.forward * size / 2);
+                        if (ActivePoint is AnchorPoint anchor2 && anchor2.anchor.GetConnectedRoad())
+                            position = ActivePoint.position;
+                        Handles.color = Color.black;
+                        Handles.CubeHandleCap(0, position, ActivePoint.rotation, -1.1f * size, EventType.Repaint);
+                        Handles.color = Color.red;
+                        Handles.CubeHandleCap(0, position, ActivePoint.rotation, size, EventType.Repaint);
+                    }
+
+                    break;
+            }
+
+            PrintToolTip();
+            return;
+
+            bool Filter(IPoint point)
+            {
+                switch (_toolState)
                 {
                     case ToolState.SELECTING:
-                        if (point.Equals(activePoint))
+                        if (point.Equals(ActivePoint))
                             return false;
                         break;
 
                     case ToolState.LINKING:
-                        if (point.Equals(activePoint))
+                        if (point.Equals(ActivePoint))
                             return false;
                         if (activeIsRoad)
                         {
@@ -175,7 +241,7 @@ namespace Barmetler.RoadSystem
                         else
                         {
                             if (point is AnchorPoint) return false;
-                            if ((activePoint as AnchorPoint).anchor.GetConnectedRoad())
+                            if ((ActivePoint as AnchorPoint)?.anchor.GetConnectedRoad())
                                 return false;
                         }
 
@@ -184,7 +250,7 @@ namespace Barmetler.RoadSystem
                     case ToolState.UNLINKING:
                         if (point is RoadPoint)
                             return false;
-                        if (!(point as AnchorPoint).anchor.GetConnectedRoad())
+                        if (!(point as AnchorPoint)?.anchor.GetConnectedRoad())
                             return false;
                         break;
                 }
@@ -196,70 +262,12 @@ namespace Barmetler.RoadSystem
 
                 return true;
             }
-
-            buttons = buttons
-                .Where(filter)
-                .OrderByDescending(e =>
-                    Vector3.Dot(Camera.current.transform.forward, e.position - Camera.current.transform.position))
-                .ToList();
-
-            float size = 1.5f;
-            foreach (var point in buttons)
-            {
-                var position = point.position - point.rotation * (Vector3.forward * size / 2);
-                Handles.color = Color.red + 0.7f * Color.white;
-                if (point is RoadPoint) Handles.color = Color.cyan;
-                else if (point is AnchorPoint _anchor1 && !_anchor1.anchor.GetConnectedRoad())
-                    Handles.color = Color.blue;
-                else if (point is AnchorPoint _anchor2 && _anchor2.anchor.GetConnectedRoad()) position = point.position;
-
-                if (toolState == ToolState.UNLINKING)
-                    Handles.color = Color.red * .5f + Color.yellow * .5f;
-
-                if (Handles.Button(position, point.rotation, size, size * 1.5f, Handles.CubeHandleCap))
-                {
-                    switch (toolState)
-                    {
-                        case ToolState.SELECTING:
-                            activePoint = point;
-                            break;
-
-                        case ToolState.LINKING:
-                            Link(activePoint, point, e.control);
-                            break;
-
-                        case ToolState.UNLINKING:
-                            Unlink(point);
-                            break;
-                    }
-                }
-            }
-
-            switch (toolState)
-            {
-                case ToolState.SELECTING:
-                case ToolState.LINKING:
-                    if (activePoint != null)
-                    {
-                        var position = activePoint.position - activePoint.rotation * (Vector3.forward * size / 2);
-                        if (activePoint is AnchorPoint _anchor2 && _anchor2.anchor.GetConnectedRoad())
-                            position = activePoint.position;
-                        Handles.color = Color.black;
-                        Handles.CubeHandleCap(0, position, activePoint.rotation, -1.1f * size, EventType.Repaint);
-                        Handles.color = Color.red;
-                        Handles.CubeHandleCap(0, position, activePoint.rotation, size, EventType.Repaint);
-                    }
-
-                    break;
-            }
-
-            PrintToolTip();
         }
 
         private void PrintToolTip()
         {
             string text = null;
-            switch (toolState)
+            switch (_toolState)
             {
                 case ToolState.LINKING:
                     text = $"Click to link ({(Event.current.control ? "extend road" : "move endpoint")})";
@@ -290,7 +298,7 @@ namespace Barmetler.RoadSystem
             if (a is AnchorPoint anchor && b is RoadPoint road)
             {
                 Undo.SetCurrentGroupName("Link Road");
-                int group = Undo.GetCurrentGroup();
+                var group = Undo.GetCurrentGroup();
                 Undo.RecordObject(road.road, "Link Road - road");
                 Undo.RecordObject(road.road.GetComponent<MeshFilter>(), "Link Road - mesh");
                 Undo.RecordObject(anchor.anchor, "Link Road - anchor");
@@ -301,7 +309,7 @@ namespace Barmetler.RoadSystem
 
                 anchor.anchor.SetRoad(road.road, road.isStart);
                 road.road.RefreshEndPoints();
-                activePoint = anchor;
+                ActivePoint = anchor;
                 Undo.CollapseUndoOperations(group);
             }
             else
@@ -312,7 +320,7 @@ namespace Barmetler.RoadSystem
 
         public static void UnlinkSelected()
         {
-            Unlink(activePoint);
+            Unlink(ActivePoint);
         }
 
         private static void Unlink(IPoint point)
@@ -322,7 +330,7 @@ namespace Barmetler.RoadSystem
                 if (point is AnchorPoint anchorPoint && anchorPoint.anchor.GetConnectedRoad())
                 {
                     Undo.SetCurrentGroupName("UnLink Road");
-                    int group = Undo.GetCurrentGroup();
+                    var group = Undo.GetCurrentGroup();
                     Undo.RecordObject(anchorPoint.anchor.GetConnectedRoad(), "UnLink Road - road");
                     Undo.RecordObject(anchorPoint.anchor.GetConnectedRoad().GetComponent<MeshFilter>(),
                         "UnLink Road - mesh");
@@ -343,9 +351,9 @@ namespace Barmetler.RoadSystem
 
         private static void OnUndoRedo()
         {
-            if (activePoint is RoadPoint roadPoint && roadPoint.IsConnected)
+            if (ActivePoint is RoadPoint roadPoint && roadPoint.IsConnected)
             {
-                activePoint = new AnchorPoint
+                ActivePoint = new AnchorPoint
                     { anchor = roadPoint.isStart ? roadPoint.road.start : roadPoint.road.end };
             }
         }

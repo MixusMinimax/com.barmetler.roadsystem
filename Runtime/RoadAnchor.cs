@@ -9,7 +9,7 @@ namespace Barmetler.RoadSystem
         private Road road;
 
         [SerializeField, HideInInspector]
-        bool isStart;
+        private bool isStart;
 
         public Intersection Intersection => GetComponentInParent<Intersection>();
 

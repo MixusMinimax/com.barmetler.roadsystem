@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Barmetler.RoadSystem.Util;
 using Unity.Profiling;
 using UnityEngine;
@@ -12,45 +13,37 @@ namespace Barmetler.RoadSystem
         public RoadAnchor end;
 
         [SerializeField, HideInInspector]
-        bool autoSetControlPoints = false;
+        private bool autoSetControlPoints = false;
 
         [SerializeField, HideInInspector]
-        List<Vector3> points = new List<Vector3>();
+        private List<Vector3> points = new List<Vector3>();
 
         [SerializeField, HideInInspector]
-        List<Vector3> normals = new List<Vector3>();
+        private List<Vector3> normals = new List<Vector3>();
 
         [SerializeField, HideInInspector]
-        List<float> angles = new List<float>();
+        private List<float> angles = new List<float>();
 
         [SerializeField, HideInInspector]
-        Bounds bounds = new Bounds();
+        private Bounds bounds = new Bounds();
 
         [SerializeField, HideInInspector]
-        List<Bounds> boundingBoxes = new List<Bounds>();
+        private List<Bounds> boundingBoxes = new List<Bounds>();
 
-        public Bounds BoundingBox
-        {
-            get => bounds;
-        }
+        public Bounds BoundingBox => bounds;
 
-        public List<Bounds> BoundingBoxes
-        {
-            get => boundingBoxes;
-        }
+        public List<Bounds> BoundingBoxes => boundingBoxes;
 
         public bool AutoSetControlPoints
         {
             get => autoSetControlPoints;
             set
             {
-                if (autoSetControlPoints != value)
+                if (autoSetControlPoints == value) return;
+                autoSetControlPoints = value;
+                if (autoSetControlPoints)
                 {
-                    autoSetControlPoints = value;
-                    if (autoSetControlPoints)
-                    {
-                        AutoSetAllControlPoints();
-                    }
+                    AutoSetAllControlPoints();
                 }
             }
         }
@@ -66,6 +59,7 @@ namespace Barmetler.RoadSystem
             public float spacing;
             public float resolution;
 
+            [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator")]
             public override bool Equals(object obj)
             {
                 return obj is EvenlySpacedPointsContext other && other.spacing == spacing &&
@@ -74,7 +68,7 @@ namespace Barmetler.RoadSystem
 
             public override int GetHashCode()
             {
-                return string.Format("{0}-{1}", spacing, resolution).GetHashCode();
+                return $"{spacing}-{resolution}".GetHashCode();
             }
         }
 
@@ -90,15 +84,9 @@ namespace Barmetler.RoadSystem
             private set => points[LoopIndex(i)] = value;
         }
 
-        public int NumPoints
-        {
-            get => points.Count;
-        }
+        public int NumPoints => points.Count;
 
-        public int NumSegments
-        {
-            get => points.Count / 3;
-        }
+        public int NumSegments => points.Count / 3;
 
         public Road()
         {
@@ -209,7 +197,7 @@ namespace Barmetler.RoadSystem
             if (isStart)
             {
                 points.InsertRange(0, new Vector3[] { pos, Vector3.zero, Vector3.zero });
-                this[2] = this[3] - (this[4] - this[3]).normalized * 0.5f * (this[0] - this[3]).magnitude;
+                this[2] = this[3] - (this[4] - this[3]).normalized * (0.5f * (this[0] - this[3]).magnitude);
                 this[1] = pos + 0.85f * (this[2] - this[0]);
                 this[1] -= Vector3.Dot(normal, (this[1] - this[0])) * normal;
                 var angle = Bezier.AngleFromNormal(this[0] - this[1], normal);
@@ -218,7 +206,7 @@ namespace Barmetler.RoadSystem
             else
             {
                 points.AddRange(new Vector3[] { Vector3.zero, Vector3.zero, pos });
-                this[-3] = this[-4] - (this[-5] - this[-4]).normalized * 0.5f * (this[-1] - this[-4]).magnitude;
+                this[-3] = this[-4] - (this[-5] - this[-4]).normalized * (0.5f * (this[-1] - this[-4]).magnitude);
                 this[-2] = pos + 0.85f * (this[-3] - this[-1]);
                 this[-2] -= Vector3.Dot(normal, (this[-2] - this[-1])) * normal;
                 var angle = Bezier.AngleFromNormal(this[-1] - this[-2], normal);
@@ -345,7 +333,7 @@ namespace Barmetler.RoadSystem
             OnCurveChanged();
         }
 
-        void FixNormal(int index)
+        private void FixNormal(int index)
         {
             var forward = index == 0
                 ? (this[1] - this[0]).normalized
@@ -353,7 +341,7 @@ namespace Barmetler.RoadSystem
             normals[index] = Vector3.ProjectOnPlane(normals[index], forward).normalized;
         }
 
-        void FixNormals()
+        private void FixNormals()
         {
             for (var i = 0; i <= NumSegments; ++i)
                 FixNormal(i);
@@ -399,7 +387,7 @@ namespace Barmetler.RoadSystem
 
         #region Automatic Control Point Functions
 
-        void AutoSetAllAffectedControlPoints(int updatedAnchorIndex)
+        private void AutoSetAllAffectedControlPoints(int updatedAnchorIndex)
         {
             for (var i = updatedAnchorIndex - 3; i <= updatedAnchorIndex + 3; i += 3)
             {
@@ -424,7 +412,7 @@ namespace Barmetler.RoadSystem
             OnCurveChanged();
         }
 
-        void AutoSetAnchorControlPoints(int anchorIndex)
+        private void AutoSetAnchorControlPoints(int anchorIndex)
         {
             var anchorPos = this[anchorIndex];
             var direction = Vector3.zero;
@@ -450,7 +438,7 @@ namespace Barmetler.RoadSystem
                 var controlIndex = anchorIndex + i * 2 - 1;
                 if (controlIndex >= 0 && controlIndex < NumPoints)
                 {
-                    this[controlIndex] = anchorPos + direction * neighborDistances[i] * 0.5f;
+                    this[controlIndex] = anchorPos + direction * (neighborDistances[i] * 0.5f);
                 }
             }
 
@@ -459,7 +447,7 @@ namespace Barmetler.RoadSystem
             OnCurveChanged();
         }
 
-        void AutoSetStartAndEndControls()
+        private void AutoSetStartAndEndControls()
         {
             if (start == null)
                 this[1] = (this[0] + this[2]) * 0.5f;
@@ -486,10 +474,11 @@ namespace Barmetler.RoadSystem
             return evenlySpacedPointsCache.GetData(new EvenlySpacedPointsContext(spacing, resolution));
         }
 
-        static readonly ProfilerMarker CalculateEvenlySpacedPointsPerfMarker =
+        private static readonly ProfilerMarker CalculateEvenlySpacedPointsPerfMarker =
             new ProfilerMarker("Road.cs CalculateEvenlySpacedPoints");
 
-        void CalculateEvenlySpacedPoints(float spacing, float resolution = 1, bool calculateBoundingBoxes = false)
+        private void CalculateEvenlySpacedPoints(float spacing, float resolution = 1,
+            bool calculateBoundingBoxes = false)
         {
             var context = new EvenlySpacedPointsContext(spacing, resolution);
             if (evenlySpacedPointsCache.IsValid(context) && !calculateBoundingBoxes) return;
@@ -637,7 +626,7 @@ namespace Barmetler.RoadSystem
             return minDst;
         }
 
-        private static ProfilerMarker RoadMeshGeneratorPerfMarker = new ProfilerMarker("RoadMeshGenerator");
+        private static ProfilerMarker _roadMeshGeneratorPerfMarker = new ProfilerMarker("RoadMeshGenerator");
 
         public void OnCurveChanged(bool updateMesh = true)
         {
@@ -646,7 +635,7 @@ namespace Barmetler.RoadSystem
 
             if (GetComponent<RoadMeshGenerator>().Let(out var generator))
             {
-                using (RoadMeshGeneratorPerfMarker.Auto())
+                using (_roadMeshGeneratorPerfMarker.Auto())
                     generator.Invalidate(updateMesh);
             }
         }

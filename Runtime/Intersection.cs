@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using UnityEngine;
 
@@ -6,15 +7,12 @@ namespace Barmetler.RoadSystem
     public class Intersection : MonoBehaviour
     {
         [SerializeField, HideInInspector]
-        RoadAnchor[] anchorPoints = new RoadAnchor[0];
+        private RoadAnchor[] anchorPoints = Array.Empty<RoadAnchor>();
 
         [SerializeField, HideInInspector]
-        float radius;
+        private float radius;
 
-        public RoadAnchor[] AnchorPoints
-        {
-            get => anchorPoints;
-        }
+        public RoadAnchor[] AnchorPoints => anchorPoints;
 
         private void OnValidate()
         {

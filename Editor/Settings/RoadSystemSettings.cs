@@ -12,7 +12,7 @@ namespace Barmetler.RoadSystem.Settings
         private class RoadSettings
         {
             [Tooltip("Draw bounding boxes around bezier segments?")]
-            public bool drawBoundingBoxes = false;
+            public bool drawBoundingBoxes;
 
             [Tooltip(
                 "When extending the road, whether to place it at the intersection of the mouse with the scene's geometry.")]
@@ -20,7 +20,7 @@ namespace Barmetler.RoadSystem.Settings
 
             [Tooltip(
                 "If useRayCast is enabled, should the new road segment copy the surface normal of the intersection?")]
-            public bool copyHitNormal = false;
+            public bool copyHitNormal;
 
             [Tooltip("The Prefab to use when creating a new road.")]
             public GameObject newRoadPrefab;
@@ -40,13 +40,13 @@ namespace Barmetler.RoadSystem.Settings
         private IntersectionSettings intersectionSettings = new IntersectionSettings();
 
         [SerializeField]
-        private bool drawNavigatorDebug = false;
+        private bool drawNavigatorDebug;
 
         [SerializeField]
-        private bool drawNavigatorDebugPoints = false;
+        private bool drawNavigatorDebugPoints;
 
         [SerializeField]
-        private bool autoCalculateNavigator = false;
+        private bool autoCalculateNavigator;
 
         public bool DrawBoundingBoxes => roadSettings.drawBoundingBoxes;
         public bool UseRayCast => roadSettings.useRayCast;
@@ -102,22 +102,22 @@ namespace Barmetler.RoadSystem.Settings
             }
         }
 
-        private const string settingsPath = "Assets/Settings/Editor/RoadSystemSettings.asset";
+        private const string SettingsPath = "Assets/Settings/Editor/RoadSystemSettings.asset";
 
-        private static RoadSystemSettings instance = null;
+        private static RoadSystemSettings _instance;
 
         public static RoadSystemSettings Instance
         {
             get
             {
-                if (instance == null)
-                    instance = AssetDatabase.LoadAssetAtPath<RoadSystemSettings>(settingsPath);
-                if (instance != null) return instance;
-                instance = CreateInstance<RoadSystemSettings>();
+                if (_instance == null)
+                    _instance = AssetDatabase.LoadAssetAtPath<RoadSystemSettings>(SettingsPath);
+                if (_instance != null) return _instance;
+                _instance = CreateInstance<RoadSystemSettings>();
                 Directory.CreateDirectory("Assets/Settings/Editor");
-                AssetDatabase.CreateAsset(instance, settingsPath);
+                AssetDatabase.CreateAsset(_instance, SettingsPath);
                 AssetDatabase.SaveAssets();
-                return instance;
+                return _instance;
             }
         }
 

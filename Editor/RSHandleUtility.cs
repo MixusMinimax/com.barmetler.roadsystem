@@ -18,7 +18,7 @@ namespace Barmetler.RoadSystem
                          return (uv: new Vector2(u, v), center.radius);
                      }))
             {
-                for (float v = Mathf.CeilToInt((center.uv.y - center.radius) / lineGap) * lineGap;
+                for (var v = Mathf.CeilToInt((center.uv.y - center.radius) / lineGap) * lineGap;
                      v <= center.uv.y + center.radius;
                      v += lineGap)
                 {
@@ -27,7 +27,7 @@ namespace Barmetler.RoadSystem
                     Handles.DrawLine(pos - right * width, pos + right * width);
                 }
 
-                for (float u = Mathf.CeilToInt((center.uv.x - center.radius) / lineGap) * lineGap;
+                for (var u = Mathf.CeilToInt((center.uv.x - center.radius) / lineGap) * lineGap;
                      u <= center.uv.x + center.radius;
                      u += lineGap)
                 {
@@ -40,7 +40,7 @@ namespace Barmetler.RoadSystem
 
         public static void DrawBoundingBoxes(Road road)
         {
-            Matrix4x4 previousMatrix = Handles.matrix;
+            var previousMatrix = Handles.matrix;
             Handles.matrix = road.transform.localToWorldMatrix;
             Handles.color = Color.grey * 0.8f;
             Handles.DrawWireCube(road.BoundingBox.center, road.BoundingBox.size);

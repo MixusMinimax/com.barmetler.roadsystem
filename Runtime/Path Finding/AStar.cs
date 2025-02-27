@@ -37,7 +37,7 @@ namespace Barmetler
 
         public delegate float Heuristic<NodeType>(NodeType node, NodeType goal) where NodeType : NodeBase;
 
-        static float DefaultHeuristic<NodeType>(NodeType node, NodeType goal) where NodeType : NodeBase
+        private static float DefaultHeuristic<NodeType>(NodeType node, NodeType goal) where NodeType : NodeBase
         {
             return (node.position - goal.position).magnitude;
         }

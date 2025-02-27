@@ -36,14 +36,14 @@ namespace Barmetler.RoadSystem
             public Texture Icon;
         }
 
-        private List<Button> Actions = new List<Button>();
+        private List<Button> _actions = new List<Button>();
 
-        private const float BUTTON_SIZE = 48;
-        private const float BUTTON_GAP = 4;
+        private const float ButtonSize = 48;
+        private const float ButtonGap = 4;
 
         private void OnEnable()
         {
-            Actions = new List<Button>
+            _actions = new List<Button>
             {
                 new Button
                 {
@@ -137,21 +137,21 @@ namespace Barmetler.RoadSystem
             buttonStyle.fontStyle = FontStyle.Bold;
 
             int rowWidth = Mathf.Max(1,
-                (int)((EditorGUIUtility.currentViewWidth - BUTTON_GAP) / (BUTTON_SIZE + BUTTON_GAP)));
+                (int)((EditorGUIUtility.currentViewWidth - ButtonGap) / (ButtonSize + ButtonGap)));
 
             int x = 0;
-            foreach (var action in Actions)
+            foreach (var action in _actions)
             {
                 if (x == 0)
                     GUILayout.BeginHorizontal();
 
-                var ToolTip = action.ToolTip;
+                var toolTip = action.ToolTip;
                 if (action.OnClickAlt != null)
-                    ToolTip += "\n\n(ALT-Click for more Settings)";
+                    toolTip += "\n\n(ALT-Click for more Settings)";
 
                 var content = action.Icon
-                    ? new GUIContent(action.Icon, $"[{action.DisplayName}]: {ToolTip}")
-                    : new GUIContent(GetInitials(action.DisplayName), ToolTip);
+                    ? new GUIContent(action.Icon, $"[{action.DisplayName}]: {toolTip}")
+                    : new GUIContent(GetInitials(action.DisplayName), toolTip);
 
                 GUI.enabled = action.OnClick != null && (action.IsEnabled?.Invoke() ?? true);
                 if (GUILayout.Button(content, buttonStyle,
