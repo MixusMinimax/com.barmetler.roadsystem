@@ -1,3 +1,5 @@
+using System;
+
 namespace Barmetler.RoadSystem.Util
 {
     public class DataCache<T>
@@ -13,7 +15,7 @@ namespace Barmetler.RoadSystem.Util
 
         public T GetData()
         {
-            if (!IsValid()) throw new System.Exception("Cache is invalid");
+            if (!IsValid()) throw new Exception("Cache is invalid");
             return data;
         }
 

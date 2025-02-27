@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using UnityEngine;
 
@@ -6,7 +7,7 @@ namespace Barmetler.RoadSystem.Util
     /// <summary>
     /// Works just like a normal two-dimensional Array, but is serializable.
     /// </summary>
-    [System.Serializable]
+    [Serializable]
     public class TwoDimensionalArray<T>
     {
         public TwoDimensionalArray(int width, int height)
@@ -56,7 +57,7 @@ namespace Barmetler.RoadSystem.Util
                 src_position.y < 0 ||
                 size.x < 1 ||
                 size.y < 1)
-                throw new System.ArgumentException("positions can't be negative, size must be positive");
+                throw new ArgumentException("positions can't be negative, size must be positive");
 
             for (
                 int this_y = src_position.y, that_y = dst_position.y;
@@ -86,7 +87,7 @@ namespace Barmetler.RoadSystem.Util
                 src_position.y < 0 ||
                 size.x < 0 ||
                 size.y < 0)
-                throw new System.ArgumentException("positions and size can't be negative");
+                throw new ArgumentException("positions and size can't be negative");
 
             for (int y = 0; y < other.Height; ++y)
             {

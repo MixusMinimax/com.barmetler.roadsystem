@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -7,7 +8,7 @@ namespace Barmetler.RoadSystem.Settings
     [CreateAssetMenu(fileName = "RoadSystemSettings", menuName = "Barmetler/RoadSystemSettings")]
     public class RoadSystemSettings : ScriptableObject
     {
-        [System.Serializable]
+        [Serializable]
         private class RoadSettings
         {
             [Tooltip("Draw bounding boxes around bezier segments?")]
@@ -25,7 +26,7 @@ namespace Barmetler.RoadSystem.Settings
             public GameObject newRoadPrefab;
         }
 
-        [System.Serializable]
+        [Serializable]
         private class IntersectionSettings
         {
             [Tooltip("The Prefab to use when creating a new intersection.")]

@@ -4,6 +4,7 @@ using System.Linq;
 using Barmetler.RoadSystem.Settings;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 #pragma warning disable CS0618
 
@@ -725,7 +726,7 @@ namespace Barmetler.RoadSystem
                 SceneView.lastActiveSceneView.camera.pixelHeight - _windowRect.height);
 
             Handles.BeginGUI();
-            _windowRect = GUILayout.Window(0, _windowRect, (int windowID) =>
+            _windowRect = GUILayout.Window(0, _windowRect, windowID =>
             {
                 if (selectedAnchorPoint != -1)
                 {
@@ -823,7 +824,7 @@ namespace Barmetler.RoadSystem
             }
         }
 
-        private void BoolField(string label, bool value, Action<bool> setter, UnityEngine.Object obj,
+        private void BoolField(string label, bool value, Action<bool> setter, Object obj,
             bool endHorizontal = true)
         {
             GUILayout.BeginHorizontal();

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Barmetler.RoadSystem.Util
@@ -19,7 +20,7 @@ namespace Barmetler.RoadSystem.Util
 
         public DataType GetData(ContextType context)
         {
-            if (!IsValid(context)) throw new System.Exception("Cache is invalid");
+            if (!IsValid(context)) throw new Exception("Cache is invalid");
             return data[context.GetHashCode()];
         }
 

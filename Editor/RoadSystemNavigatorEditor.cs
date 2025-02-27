@@ -1,3 +1,4 @@
+using System;
 using Barmetler.RoadSystem.Settings;
 using UnityEditor;
 using UnityEngine;
@@ -29,7 +30,7 @@ namespace Barmetler.RoadSystem
             {
                 navigator.CalculateWayPointsSync();
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Debug.LogError(e);
             }

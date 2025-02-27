@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Barmetler.RoadSystem.Settings;
 using Barmetler.RoadSystem.Util;
@@ -29,9 +30,9 @@ namespace Barmetler.RoadSystem
             public string DisplayName;
             public string ToolTip;
             public ESymbol Symbol;
-            public System.Action OnClick;
-            public System.Action OnClickAlt;
-            public System.Func<bool> IsEnabled;
+            public Action OnClick;
+            public Action OnClickAlt;
+            public Func<bool> IsEnabled;
             public Texture Icon;
         }
 

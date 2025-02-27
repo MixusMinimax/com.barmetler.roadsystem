@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -48,7 +49,7 @@ namespace Barmetler.RoadSystem
 
         private ToolState toolState = ToolState.SELECTING;
 
-        public interface IPoint : System.IEquatable<IPoint>
+        public interface IPoint : IEquatable<IPoint>
         {
             Vector3 position { get; }
             Quaternion rotation { get; }

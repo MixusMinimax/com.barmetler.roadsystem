@@ -13,7 +13,7 @@ namespace Barmetler.RoadSystem.Util
         /// <summary>
         /// Describes the coordinate space of a mesh.
         /// </summary>
-        [System.Serializable]
+        [Serializable]
         public struct MeshOrientation : IEquatable<MeshOrientation>
         {
             public enum AxisDirection

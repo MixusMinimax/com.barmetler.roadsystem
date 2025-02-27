@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Diagnostics;
 using UnityEngine;
 
@@ -12,7 +13,7 @@ namespace Barmetler.RoadSystem.Util
     public class AsyncUpdater<T>
     {
         private T data;
-        private readonly System.Func<T> updater;
+        private readonly Func<T> updater;
 
         private readonly MonoBehaviour mb;
         private readonly object dispatcherLock = new object();
@@ -22,7 +23,7 @@ namespace Barmetler.RoadSystem.Util
         private readonly float interval = 0;
         private readonly Stopwatch sw = new Stopwatch();
 
-        public AsyncUpdater(MonoBehaviour mb, System.Func<T> updater, T initialData, float interval = 0)
+        public AsyncUpdater(MonoBehaviour mb, Func<T> updater, T initialData, float interval = 0)
         {
             this.mb = mb;
             this.updater = updater;
@@ -30,7 +31,7 @@ namespace Barmetler.RoadSystem.Util
             data = initialData;
         }
 
-        public AsyncUpdater(MonoBehaviour mb, System.Func<T> updater)
+        public AsyncUpdater(MonoBehaviour mb, Func<T> updater)
         {
             this.mb = mb;
             this.updater = updater;
