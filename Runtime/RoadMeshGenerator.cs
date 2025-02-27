@@ -284,7 +284,11 @@ namespace Barmetler.RoadSystem
 
                 if (copyCount >= 1)
                 {
+#if NATIVE_HASHSET_PARALLEL
+                    var intersectedIndices = new NativeParallelHashMap<int2, ushort>(128, Allocator.Temp);
+#else
                     var intersectedIndices = new NativeHashMap<int2, ushort>(128, Allocator.Temp);
+#endif
 
                     for (var subMeshIndex = 0; subMeshIndex < subMeshCount; ++subMeshIndex)
                     {
@@ -467,7 +471,11 @@ namespace Barmetler.RoadSystem
                     boundsMin = new float3(float.MaxValue);
                     boundsMax = new float3(float.MinValue);
                     var minIndex = int.MaxValue;
+#if NATIVE_HASHSET_PARALLEL
+                    using var usedIndices = new NativeParallelHashSet<int>(subMeshIndices.Length, Allocator.Temp);
+#else
                     using var usedIndices = new NativeHashSet<int>(subMeshIndices.Length, Allocator.Temp);
+#endif
 
                     for (var i = 0; i < subMeshIndices.Length; ++i)
                     {
@@ -485,7 +493,11 @@ namespace Barmetler.RoadSystem
                         indexStart = indexOffset,
                         indexCount = subMeshIndices.Length,
                         firstVertex = minIndex,
+#if NATIVE_HASHSET_COUNT_FUN
                         vertexCount = usedIndices.Count()
+#else
+                        vertexCount = usedIndices.Count
+#endif
                     }, MeshUpdateFlags.DontRecalculateBounds);
                     indexOffset += subMeshIndices.Length;
                 }

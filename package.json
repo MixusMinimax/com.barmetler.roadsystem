@@ -1,6 +1,6 @@
 {
   "name": "com.barmetler.roadsystem",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "displayName": "MB Road System",
   "dependencies": {
     "com.unity.burst": "1.4.5",
