@@ -55,10 +55,11 @@ namespace Barmetler.RoadSystem
                 parent = selected.transform;
 
             var newObject = new GameObject("RoadSystem");
-            Undo.RegisterCreatedObjectUndo(newObject, "Create new Road System");
             newObject.AddComponent<RoadSystem>();
 
             GameObjectUtility.SetParentAndAlign(newObject, parent ? parent.gameObject : null);
+
+            Undo.RegisterCreatedObjectUndo(newObject, "Create new Road System");
 
             Selection.activeGameObject = newObject;
         }
@@ -91,8 +92,6 @@ namespace Barmetler.RoadSystem
             {
                 newObject = new GameObject("Intersection");
             }
-
-            Undo.RegisterCreatedObjectUndo(newObject, "Create new Intersection");
 
             if (!intersection)
                 newObject.AddComponent<Intersection>();
@@ -148,6 +147,8 @@ namespace Barmetler.RoadSystem
                 GameObjectUtility.SetParentAndAlign(newObject, parent ? parent.gameObject : null);
             }
 
+            Undo.RegisterCreatedObjectUndo(newObject, "Create new Intersection");
+
             if (!RoadLinkTool.ActiveInstance)
                 Selection.activeGameObject = newObject;
         }
@@ -183,8 +184,6 @@ namespace Barmetler.RoadSystem
                 newObject = new GameObject("Road");
             }
 
-            Undo.RegisterCreatedObjectUndo(newObject, "Create new Road");
-
             if (!road)
                 road = newObject.AddComponent<Road>();
 
@@ -212,6 +211,8 @@ namespace Barmetler.RoadSystem
                 road.MoveNormal(1, road.GetNormal(0));
                 selectionContext.EndSelected = true;
             }
+
+            Undo.RegisterCreatedObjectUndo(newObject, "Create new Road");
 
             if (newObject.GetComponent<RoadMeshGenerator>() is { } roadMeshGenerator)
                 roadMeshGenerator.GenerateRoadMesh();
