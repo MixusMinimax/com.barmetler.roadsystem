@@ -109,10 +109,10 @@ namespace Barmetler.RoadSystem
             if (selected?.GetComponent<Road>() is { } road)
             {
                 var isStart = RoadLinkTool.ActiveInstance
-                    ? ((RoadLinkTool.ActivePoint as RoadLinkTool.RoadPoint)?.isStart ?? false)
-                    : (RoadEditor.GetEditor(selected).SelectedAnchorPoint <= road.NumSegments / 2);
+                    ? (RoadLinkTool.ActivePoint as RoadLinkTool.RoadPoint)?.isStart ?? false
+                    : RoadEditor.GetEditor(selected).SelectedAnchorPoint <= road.NumSegments / 2;
                 if (!(isStart ? road.start : road.end) &&
-                    (newObject.GetComponentInChildren<RoadAnchor>() is { } anchor))
+                    newObject.GetComponentInChildren<RoadAnchor>() is { } anchor)
                 {
                     newObject.transform.parent = parent;
                     var position = road.transform.TransformPoint(isStart ? road[0] : road[-1]);
@@ -199,20 +199,31 @@ namespace Barmetler.RoadSystem
 
             GameObjectUtility.SetParentAndAlign(newObject, parent ? parent.gameObject : null);
 
+            var selectionContext = ScriptableObject.CreateInstance<RoadEditor.RoadSelectionContext>();
+            selectionContext.Road = road;
+
             if (selected && selected.GetComponent<RoadAnchor>() is { } anchor && !anchor.GetConnectedRoad())
             {
                 road.start = anchor;
                 road.RefreshEndPoints();
                 var n = (road[1] - road[0]).normalized;
-                foreach (int i in new[] { 1, 3, 2 })
+                foreach (var i in new[] { 1, 3, 2 })
                     road.MovePoint(i, road[0] + i * n);
                 road.MoveNormal(1, road.GetNormal(0));
+                selectionContext.EndSelected = true;
             }
 
             if (newObject.GetComponent<RoadMeshGenerator>() is { } roadMeshGenerator)
                 roadMeshGenerator.GenerateRoadMesh();
 
-            Selection.activeGameObject = newObject;
+            if (RoadLinkTool.ActiveInstance)
+            {
+                RoadLinkTool.Select(road, isStart: selectionContext.EndSelected != true);
+            }
+            else
+            {
+                Selection.SetActiveObjectWithContext(newObject, selectionContext);
+            }
         }
 
         [MenuItem("Tools/RoadSystem/Extrude %#e")]

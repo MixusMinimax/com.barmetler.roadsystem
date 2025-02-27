@@ -31,10 +31,28 @@ namespace Barmetler.RoadSystem
 
         public override void OnWillBeDeactivated()
         {
-            if (ActivePoint is AnchorPoint pt)
-                UnityEditor.Selection.activeObject = pt.anchor.GetConnectedRoad();
-            else
-                UnityEditor.Selection.activeObject = ActivePoint?.gameObject;
+            switch (ActivePoint)
+            {
+                case AnchorPoint { anchor: { } anchor } pt when anchor.GetConnectedRoad() is { } road:
+                {
+                    var context = CreateInstance<RoadEditor.RoadSelectionContext>();
+                    context.Road = road;
+                    context.EndSelected = anchor == road.end;
+                    UnityEditor.Selection.SetActiveObjectWithContext(road, context);
+                    break;
+                }
+                case RoadPoint { road: { } road, isStart: var isStart }:
+                {
+                    var context = CreateInstance<RoadEditor.RoadSelectionContext>();
+                    context.Road = road;
+                    context.EndSelected = !isStart;
+                    UnityEditor.Selection.SetActiveObjectWithContext(road, context);
+                    break;
+                }
+                default:
+                    UnityEditor.Selection.activeObject = ActivePoint?.gameObject;
+                    break;
+            }
 
             ActiveInstance = null;
             Undo.undoRedoPerformed -= OnUndoRedo;
@@ -95,7 +113,7 @@ namespace Barmetler.RoadSystem
 
             public bool Equals(IPoint other)
             {
-                return (other is AnchorPoint otherAnchor) && anchor == otherAnchor.anchor;
+                return other is AnchorPoint otherAnchor && anchor == otherAnchor.anchor;
             }
         }
 
@@ -351,7 +369,7 @@ namespace Barmetler.RoadSystem
 
         private static void OnUndoRedo()
         {
-            if (ActivePoint is RoadPoint roadPoint && roadPoint.IsConnected)
+            if (ActivePoint is RoadPoint { IsConnected: true } roadPoint)
             {
                 ActivePoint = new AnchorPoint
                     { anchor = roadPoint.isStart ? roadPoint.road.start : roadPoint.road.end };

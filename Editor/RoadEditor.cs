@@ -43,6 +43,8 @@ namespace Barmetler.RoadSystem
             _road.RefreshEndPoints();
             UpdateToolVisibility();
             Undo.undoRedoPerformed += OnUndoRedo;
+            if (Selection.activeContext is RoadSelectionContext { EndSelected: { } endSelected })
+                _selectedAnchorPoint = endSelected ? _road.NumPoints - 1 : 0;
         }
 
         private void OnDisable()
@@ -50,7 +52,7 @@ namespace Barmetler.RoadSystem
             Tools.hidden = false;
             Undo.undoRedoPerformed -= OnUndoRedo;
             ActiveEditors.Remove(this);
-            RoadLinkTool.Select(_road, _selectedAnchorPoint <= _road.NumSegments / 2);
+            RoadLinkTool.Select(_road, _selectedAnchorPoint <= _road.NumPoints / 2);
         }
 
         private void OnSceneGUI()
@@ -871,6 +873,12 @@ namespace Barmetler.RoadSystem
             t = Mathf.Clamp01(num2);
             index = index1;
             return Vector3.Lerp(vertex1, vertex2, t);
+        }
+
+        public class RoadSelectionContext : ScriptableObject
+        {
+            public Road Road;
+            public bool? EndSelected;
         }
     }
 }
