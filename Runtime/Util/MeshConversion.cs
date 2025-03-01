@@ -68,7 +68,7 @@ namespace Barmetler.RoadSystem.Util
                 {
                     forward = AxisDirection.Y_POSITIVE,
                     up = AxisDirection.Z_POSITIVE,
-                    isRightHanded = true
+                    isRightHanded = false // Unity does something weird on import.
                 },
                 ["UNITY"] = new MeshOrientation
                 {

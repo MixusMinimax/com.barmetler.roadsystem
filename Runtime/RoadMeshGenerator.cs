@@ -214,13 +214,11 @@ namespace Barmetler.RoadSystem
                     ref var sourceSubMeshIndices = ref sourceIndices[subMeshIndex];
                     sourceSubMeshIndices.ResizeUninitialized(subMesh.indexCount);
                     SourceMeshData.GetIndices(sourceSubMeshIndices.AsArray(), subMeshIndex);
-                    if (SourceOrientation.isRightHanded)
+                    if (!SourceOrientation.isRightHanded) continue;
+                    for (var i = 0; i < sourceSubMeshIndices.Length; i += 3)
                     {
-                        for (var i = 0; i < sourceSubMeshIndices.Length; i += 3)
-                        {
-                            (sourceSubMeshIndices[i], sourceSubMeshIndices[i + 2]) =
-                                (sourceSubMeshIndices[i + 2], sourceSubMeshIndices[i]);
-                        }
+                        (sourceSubMeshIndices[i], sourceSubMeshIndices[i + 2]) =
+                            (sourceSubMeshIndices[i + 2], sourceSubMeshIndices[i]);
                     }
                 }
 
@@ -248,8 +246,9 @@ namespace Barmetler.RoadSystem
                     {
                         var resultIndex = z * sourceVertexCount + sourceIndex;
                         sourceAttributeData.GetFloat3(sourceIndex, VertexAttribute.Position, out var position);
+                        position -= meshMinZ * sourceForward;
                         position = float3(dot(sourceRight, position), dot(sourceUp, position),
-                            dot(sourceForward, position) - meshMinZ + zOffset);
+                            dot(sourceForward, position) + zOffset);
                         sourceAttributeData.GetFloat3(sourceIndex, VertexAttribute.Normal, out var normal);
                         normal = float3(dot(sourceRight, normal), dot(sourceUp, normal), dot(sourceForward, normal));
                         sourceAttributeData.GetFloat4(sourceIndex, VertexAttribute.Tangent, out var tangent);
