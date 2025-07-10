@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
@@ -34,6 +35,33 @@ namespace Barmetler.RoadSystem
             {
                 _intersection.transform.hasChanged = false;
                 _intersection.Invalidate();
+            }
+
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(
+                "Packages/com.barmetler.roadsystem/Assets/Models/ArrowHorizontal.fbx");
+
+            var size = HandleUtility.GetHandleSize(_intersection.transform.position) * 1.5f;
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                Handles.color = new Color(0.5f, 0.7f, 1.0f);
+                Shader.SetGlobalColor("_HandleColor", Handles.color);
+                Shader.SetGlobalFloat("_HandleSize", 100 * size);
+                HandleUtility.handleMaterial.SetPass(0);
+
+                Graphics.DrawMeshNow(mesh,
+                    Handles.matrix * Matrix4x4.TRS(_intersection.transform.position,
+                        _intersection.transform.rotation * Quaternion.Euler(0, 90, 90),
+                        Vector3.one), -1
+                );
+
+                Graphics.DrawMeshNow(mesh,
+                    Handles.matrix * Matrix4x4.TRS(_intersection.transform.position,
+                        _intersection.transform.rotation * Quaternion.Euler(180, 90, 90),
+                        Vector3.one), -1
+                );
+
+                // Handles.ArrowHandleCap();
             }
         }
     }
