@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Barmetler.RoadSystem
 {
+    [SelectionBase]
     public class Intersection : MonoBehaviour
     {
         [SerializeField, HideInInspector]
