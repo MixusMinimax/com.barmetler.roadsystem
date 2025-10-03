@@ -32,6 +32,7 @@ namespace Barmetler.RoadSystem
         {
             public Vector3 start, end;
             public float cost;
+            public RoadDirection direction;
         }
 
         private void OnEnable()
@@ -503,20 +504,8 @@ namespace Barmetler.RoadSystem
                     }
                 }
 
-                foreach (var road in roadSystem.roads)
-                {
-                    road.OnValidate();
-                    if (road.start && road.end)
-                    {
-                        var startIndex = FindIndex(road.start, nodes);
-                        var endIndex = FindIndex(road.end, nodes);
-                        if (startIndex != -1 && endIndex != -1)
-                            weights[startIndex, endIndex] = weights[endIndex, startIndex] = road.GetLength();
-                    }
-                }
-
                 // Connect all nodes with 1000x their distance, so that islands can still connect, and not exception will be thrown.
-                // This shouldn't really be needed, because islands shouldn't exist in a roadsystem, so it's more of a failsafe.
+                // This shouldn't really be needed, because islands shouldn't exist in a RoadSystem, so it's more of a failsafe.
                 for (var i = 0; i < count; ++i)
                 {
                     for (var j = i; j < count; ++j)
@@ -524,6 +513,30 @@ namespace Barmetler.RoadSystem
                         var weight = (nodes[i].position - nodes[j].position).magnitude * roadSystem.DistanceFactor;
                         if (float.IsInfinity(weights[i, j])) weights[i, j] = weight;
                         if (float.IsInfinity(weights[j, i])) weights[j, i] = weight;
+                    }
+                }
+
+                foreach (var road in roadSystem.roads)
+                {
+                    road.OnValidate();
+                    if (!road.start || !road.end) continue;
+                    var startIndex = FindIndex(road.start, nodes);
+                    var endIndex = FindIndex(road.end, nodes);
+                    if (startIndex == -1 || endIndex == -1) continue;
+                    weights[startIndex, endIndex] = weights[endIndex, startIndex] = float.PositiveInfinity;
+                    if (road.direction == RoadDirection.Closed) continue;
+                    var length = road.GetLength();
+                    switch (road.direction)
+                    {
+                        case RoadDirection.Bidirectional:
+                            weights[startIndex, endIndex] = weights[endIndex, startIndex] = length;
+                            break;
+                        case RoadDirection.StartToEnd:
+                            weights[startIndex, endIndex] = length;
+                            break;
+                        case RoadDirection.EndToStart:
+                            weights[endIndex, startIndex] = length;
+                            break;
                     }
                 }
 
@@ -539,18 +552,23 @@ namespace Barmetler.RoadSystem
                 var ret = new List<Edge>();
                 for (var from = 0; from < nodes.Count; ++from)
                 {
-                    for (var to = 0; to < nodes.Count; ++to)
+                    for (var to = from + 1; to < nodes.Count; ++to)
                     {
-                        if (weights[from, to] < 5e3 && weights[from, to] > 1e-3)
+                        var startToEnd = weights[from, to];
+                        var endToStart = weights[to, from];
+                        if (!IsVisible(startToEnd) && !IsVisible(endToStart)) continue;
+                        var direction = float.IsInfinity(endToStart) ? RoadDirection.StartToEnd :
+                            float.IsInfinity(startToEnd) ? RoadDirection.EndToStart : RoadDirection.Bidirectional;
+                        var edge = new Edge
                         {
-                            var edge = new Edge
-                            {
-                                start = roadSystem.transform.TransformPoint(nodes[from].position),
-                                end = roadSystem.transform.TransformPoint(nodes[to].position),
-                                cost = weights[from, to]
-                            };
-                            ret.Add(edge);
-                        }
+                            start = roadSystem.transform.TransformPoint(nodes[from].position),
+                            end = roadSystem.transform.TransformPoint(nodes[to].position),
+                            cost = direction == RoadDirection.EndToStart ? endToStart : startToEnd,
+                            direction = direction
+                        };
+                        ret.Add(edge);
+                        continue;
+                        bool IsVisible(float weight) => weight < 5e3 && weight > 1e-3;
                     }
                 }
 

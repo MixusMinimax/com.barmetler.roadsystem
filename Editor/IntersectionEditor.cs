@@ -8,6 +8,9 @@ namespace Barmetler.RoadSystem
     [CustomEditor(typeof(Intersection))]
     public class IntersectionEditor : Editor
     {
+        private static readonly int HandleColor = Shader.PropertyToID("_HandleColor");
+        private static readonly int HandleSize = Shader.PropertyToID("_HandleSize");
+
         private Intersection _intersection;
         private List<Road> _affectedRoads;
 
@@ -45,8 +48,8 @@ namespace Barmetler.RoadSystem
             if (Event.current.type == EventType.Repaint)
             {
                 Handles.color = new Color(0.5f, 0.7f, 1.0f);
-                Shader.SetGlobalColor("_HandleColor", Handles.color);
-                Shader.SetGlobalFloat("_HandleSize", 100 * size);
+                Shader.SetGlobalColor(HandleColor, Handles.color);
+                Shader.SetGlobalFloat(HandleSize, 100 * size);
                 HandleUtility.handleMaterial.SetPass(0);
 
                 Graphics.DrawMeshNow(mesh,

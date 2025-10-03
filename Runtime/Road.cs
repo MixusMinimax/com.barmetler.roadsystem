@@ -11,6 +11,7 @@ namespace Barmetler.RoadSystem
     {
         public RoadAnchor start;
         public RoadAnchor end;
+        public RoadDirection direction;
 
         [SerializeField, HideInInspector]
         private bool autoSetControlPoints = false;

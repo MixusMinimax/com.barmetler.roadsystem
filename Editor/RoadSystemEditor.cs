@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Text;
 using Barmetler.RoadSystem.Util;
@@ -42,6 +43,27 @@ namespace Barmetler.RoadSystem
             foreach (var edge in edges)
             {
                 Handles.DrawLine(edge.start, edge.end, 2f);
+                if (edge.direction == RoadDirection.StartToEnd || edge.direction == RoadDirection.EndToStart)
+                {
+                    var spacing = HandleUtility.GetHandleSize((edge.start + edge.end) / 2);
+                    var length = Vector3.Distance(edge.start, edge.end);
+                    var amount = Math.Max(2, (int) ((length / spacing - 1) / 2) * 2);
+
+                    var forward = Vector3.Normalize(edge.direction == RoadDirection.StartToEnd
+                        ? edge.end - edge.start
+                        : edge.start - edge.end);
+                    var normal = -Camera.current.transform.forward;
+                    var right = Vector3.Cross(forward, normal);
+                    for (var i = 0; i < amount; i++)
+                    {
+                        var f = (i + 1f) / (amount + 1);
+                        var midpoint = Vector3.Lerp(edge.start, edge.end, f);
+                        var size = HandleUtility.GetHandleSize(midpoint) * 0.1f;
+                        Handles.DrawLine(midpoint, midpoint - (forward + right) * size, 2f);
+                        Handles.DrawLine(midpoint, midpoint - (forward - right) * size, 2f);
+                    }
+                }
+
                 if (_roadSystem.ShowEdgeWeights)
                     Handles.Label((edge.start + edge.end) / 2, "Cost: " + edge.cost, style);
             }
