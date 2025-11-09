@@ -231,6 +231,18 @@ namespace Barmetler.RoadSystem
                 return pathPoints;
             }
 
+            void ReversePoints(List<Bezier.OrientedPoint> points, int index, int count)
+            {
+                for (var i = index; i < index + count; ++i)
+                {
+                    var point = points[i];
+                    point.forward = -point.forward;
+                    points[i] = point;
+                }
+
+                points.Reverse(index, count);
+            }
+
             for (var nodeIndex = 0; nodeIndex < nodes.Count - 1; ++nodeIndex)
             {
                 var node = nodes[nodeIndex];
@@ -262,7 +274,7 @@ namespace Barmetler.RoadSystem
                         if (pathPoints.Count > pathPointsCount)
                         {
                             if (node.distanceAlongRoad > nextNode.distanceAlongRoad)
-                                pathPoints.Reverse(pathPointsCount, pathPoints.Count - pathPointsCount);
+                                ReversePoints(pathPoints, pathPointsCount, pathPoints.Count - pathPointsCount);
                             pathPoints.Insert(pathPointsCount, new Bezier.OrientedPoint(
                                 node.GetWorldPosition(), pathPoints[pathPointsCount].forward,
                                 pathPoints[pathPointsCount].normal));
@@ -282,10 +294,11 @@ namespace Barmetler.RoadSystem
                         var road = node.anchor.GetConnectedRoad(out var forward);
                         var roadPoints = road.GetEvenlySpacedPoints(stepSize);
                         // the start point should already be on the path if it's not the first node
-                        pathPoints.AddRange(
-                            (forward ? roadPoints : roadPoints.Reverse())
+                        var pathPointsCount = pathPoints.Count;
+                        pathPoints.AddRange(roadPoints
                             .Select(point => point.ToWorldSpace(road.transform))
                             .Skip(pathPoints.Count > 0 ? 1 : 0));
+                        if (!forward) ReversePoints(pathPoints, pathPointsCount, pathPoints.Count - pathPointsCount);
                         break;
                     }
 
@@ -318,7 +331,8 @@ namespace Barmetler.RoadSystem
                         var isReverse = isStart == isFromStart;
                         if (pathPoints.Count > pathPointsCount)
                         {
-                            if (isReverse) pathPoints.Reverse(pathPointsCount, pathPoints.Count - pathPointsCount);
+                            if (isReverse)
+                                ReversePoints(pathPoints, pathPointsCount, pathPoints.Count - pathPointsCount);
                             if (isStart)
                                 pathPoints.Insert(pathPointsCount, new Bezier.OrientedPoint(
                                     node.GetWorldPosition(), pathPoints[pathPointsCount].forward,
