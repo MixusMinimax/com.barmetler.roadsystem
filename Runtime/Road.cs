@@ -49,27 +49,57 @@ namespace Barmetler.RoadSystem
             }
         }
 
-        public struct EvenlySpacedPointsContext
+        public bool DirectionAllowStartToEnd
+        {
+            get =>
+                direction == RoadDirection.Bidirectional || direction == RoadDirection.StartToEnd;
+            set =>
+                direction = (direction, value) switch
+                {
+                    (RoadDirection.Bidirectional, false) => RoadDirection.EndToStart,
+                    (RoadDirection.StartToEnd, false) => RoadDirection.Closed,
+                    (RoadDirection.EndToStart, true) => RoadDirection.Bidirectional,
+                    (RoadDirection.Closed, true) => RoadDirection.StartToEnd,
+                    _ => direction
+                };
+        }
+
+        public bool DirectionAllowEndToStart
+        {
+            get =>
+                direction == RoadDirection.Bidirectional || direction == RoadDirection.EndToStart;
+            set =>
+                direction = (direction, value) switch
+                {
+                    (RoadDirection.Bidirectional, false) => RoadDirection.StartToEnd,
+                    (RoadDirection.StartToEnd, true) => RoadDirection.Bidirectional,
+                    (RoadDirection.EndToStart, false) => RoadDirection.Closed,
+                    (RoadDirection.Closed, true) => RoadDirection.EndToStart,
+                    _ => direction
+                };
+        }
+
+        private struct EvenlySpacedPointsContext
         {
             public EvenlySpacedPointsContext(float _spacing, float _resolution)
             {
-                spacing = _spacing;
-                resolution = _resolution;
+                this._spacing = _spacing;
+                this._resolution = _resolution;
             }
 
-            public float spacing;
-            public float resolution;
+            private readonly float _spacing;
+            private readonly float _resolution;
 
             [SuppressMessage("ReSharper", "CompareOfFloatsByEqualityOperator")]
             public override bool Equals(object obj)
             {
-                return obj is EvenlySpacedPointsContext other && other.spacing == spacing &&
-                       other.resolution == resolution;
+                return obj is EvenlySpacedPointsContext other && other._spacing == _spacing &&
+                       other._resolution == _resolution;
             }
 
             public override int GetHashCode()
             {
-                return $"{spacing}-{resolution}".GetHashCode();
+                return $"{_spacing}-{_resolution}".GetHashCode();
             }
         }
 

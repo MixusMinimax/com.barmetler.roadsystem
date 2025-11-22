@@ -14,6 +14,9 @@ namespace Barmetler.RoadSystem.Settings
             [Tooltip("Draw bounding boxes around bezier segments?")]
             public bool drawBoundingBoxes;
 
+            [Tooltip("Show buttons for changing between one-way roads, bidirectional, or blocked roads.")]
+            public bool showRoadDirectionButtons;
+
             [Tooltip(
                 "When extending the road, whether to place it at the intersection of the mouse with the scene's geometry.")]
             public bool useRayCast = true;
@@ -49,6 +52,7 @@ namespace Barmetler.RoadSystem.Settings
         private bool autoCalculateNavigator;
 
         public bool DrawBoundingBoxes => roadSettings.drawBoundingBoxes;
+        public bool ShowRoadDirectionButtons => roadSettings.showRoadDirectionButtons;
         public bool UseRayCast => roadSettings.useRayCast;
         public bool CopyHitNormal => roadSettings.copyHitNormal;
 

@@ -159,12 +159,20 @@ namespace Barmetler.RoadSystem
             }
         }
 
+        private static bool EnabledButton(bool enabled, Vector3 pos, Quaternion rot, float size, float pickSize,
+            EventType eventType, Handles.CapFunction capFunction)
+        {
+            if (enabled) return Handles.Button(pos, rot, size, pickSize, capFunction);
+            capFunction(0, pos, rot, size, eventType);
+            return false;
+        }
+
         private readonly Dictionary<int, Quaternion> _initialRotations = new Dictionary<int, Quaternion>();
 
         private void GUIControlPoints(int controlID)
         {
             var e = Event.current;
-            var hasModifiers = (e.alt || e.shift || e.control);
+            var hasModifiers = e.alt || e.shift || e.control;
 
             if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
                 _selectedAnchorPoint = -1;
@@ -185,14 +193,40 @@ namespace Barmetler.RoadSystem
                     Handles.color = hasModifiers ? Color.grey : Color.red * 0.8f;
                     foreach (var p in points.Where(p => _selectedAnchorPoint != p.index))
                     {
-                        if (hasModifiers)
-                            Handles.SphereHandleCap(0, p.pos, Quaternion.identity,
-                                0.2f * HandleUtility.GetHandleSize(p.pos), EventType.Repaint);
-                        else if (Handles.Button(p.pos, Quaternion.identity,
-                                     0.3f * HandleUtility.GetHandleSize(p.pos),
-                                     0.3f * HandleUtility.GetHandleSize(p.pos),
-                                     Handles.SphereHandleCap))
+                        var handleSize = HandleUtility.GetHandleSize(p.pos);
+                        if (EnabledButton(!hasModifiers, p.pos, Quaternion.identity,
+                                (hasModifiers ? 0.2f : 0.3f) * handleSize, 0.3f * handleSize, e.type,
+                                Handles.SphereHandleCap))
+                        {
                             _selectedAnchorPoint = p.index;
+                        }
+                    }
+
+                    if (_settings.ShowRoadDirectionButtons)
+                    {
+                        Undo.RecordObject(_road, "Modify allowed directions");
+                        float scale = hasModifiers ? 0.3f : 0.5f;
+                        for (var i = 0; i < 2; ++i)
+                        {
+                            var allowed = i == 0 ? _road.DirectionAllowStartToEnd : _road.DirectionAllowEndToStart;
+                            Handles.color = allowed ? new Color(0.13f, 0.87f, 0.18f) : new Color(0.37f, 0.18f, 0.20f);
+                            var i0 = i == 0 ? 0 : -1;
+                            var i1 = i == 0 ? 1 : -2;
+                            var arrForward = _road.transform.TransformDirection((_road[i1] - _road[i0]).normalized);
+                            var arrPos = _road.transform.TransformPoint(_road[i0]);
+                            var arrUp = _road.transform.TransformDirection(
+                                _road.GetNormal(i == 0 ? 0 : _road.NumSegments));
+                            var handleSize = scale * HandleUtility.GetHandleSize(arrPos);
+                            arrPos += scale * HandleUtility.GetHandleSize(arrPos) * arrForward;
+                            if (EnabledButton(!hasModifiers, arrPos, Quaternion.LookRotation(arrForward, arrUp),
+                                    handleSize, handleSize, e.type, Handles.ConeHandleCap))
+                            {
+                                if (i == 0)
+                                    _road.DirectionAllowStartToEnd = !allowed;
+                                else
+                                    _road.DirectionAllowEndToStart = !allowed;
+                            }
+                        }
                     }
 
                     break;
@@ -832,7 +866,7 @@ namespace Barmetler.RoadSystem
                 false);
             if (GUILayout.Button("Set Control Points"))
             {
-                Undo.RecordObject(_road, "Set Control Points");
+                Undo.RecordObject(_road, "Calculate Control Points");
                 _road.AutoSetAllControlPoints();
             }
 
