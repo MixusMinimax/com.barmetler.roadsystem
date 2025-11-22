@@ -126,10 +126,32 @@ namespace Barmetler.RoadSystem
                 lastPos = p.position;
             }
 
+            var roadDirection = _road.direction;
+
             foreach (var p in points)
             {
-                Handles.color = Color.blue * 0.8f;
-                Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, EventType.Repaint);
+                switch (roadDirection)
+                {
+                    case RoadDirection.Bidirectional:
+                        Handles.color = Color.blue * 0.8f;
+                        Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, EventType.Repaint);
+                        break;
+                    case RoadDirection.Closed:
+                        Handles.color = Color.red * 0.8f;
+                        Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, EventType.Repaint);
+                        break;
+                    case RoadDirection.StartToEnd:
+                        Handles.color = Color.blue * 0.8f;
+                        Handles.ConeHandleCap(0, p.position, Quaternion.LookRotation(p.forward, p.normal), 0.2f,
+                            EventType.Repaint);
+                        break;
+                    case RoadDirection.EndToStart:
+                        Handles.color = Color.blue * 0.8f;
+                        Handles.ConeHandleCap(0, p.position, Quaternion.LookRotation(-p.forward, p.normal), 0.2f,
+                            EventType.Repaint);
+                        break;
+                }
+
                 Handles.color = Color.yellow * 0.8f;
                 Handles.DrawLine(p.position, p.position + p.normal);
                 // Handles.color = Color.red * 0.8f;
