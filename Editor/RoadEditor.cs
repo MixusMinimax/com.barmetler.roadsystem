@@ -171,10 +171,10 @@ namespace Barmetler.RoadSystem
 
         private void GUIControlPoints(int controlID)
         {
-            var e = Event.current;
-            var hasModifiers = e.alt || e.shift || e.control;
+            var currentEvent = Event.current;
+            var hasModifiers = currentEvent.alt || currentEvent.shift || currentEvent.control;
 
-            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape)
+            if (currentEvent.type == EventType.KeyDown && currentEvent.keyCode == KeyCode.Escape)
                 _selectedAnchorPoint = -1;
 
             switch (Tools.current)
@@ -195,7 +195,7 @@ namespace Barmetler.RoadSystem
                     {
                         var handleSize = HandleUtility.GetHandleSize(p.pos);
                         if (EnabledButton(!hasModifiers, p.pos, Quaternion.identity,
-                                (hasModifiers ? 0.2f : 0.3f) * handleSize, 0.3f * handleSize, e.type,
+                                (hasModifiers ? 0.2f : 0.3f) * handleSize, 0.3f * handleSize, currentEvent.type,
                                 Handles.SphereHandleCap))
                         {
                             _selectedAnchorPoint = p.index;
@@ -205,9 +205,12 @@ namespace Barmetler.RoadSystem
                     if (_settings.ShowRoadDirectionButtons)
                     {
                         Undo.RecordObject(_road, "Modify allowed directions");
-                        float scale = hasModifiers ? 0.3f : 0.5f;
+                        var scale = hasModifiers ? 0.3f : 0.5f;
                         for (var i = 0; i < 2; ++i)
                         {
+                            if (i == 0 && _selectedAnchorPoint == 0 ||
+                                i == 1 && _selectedAnchorPoint == _road.NumPoints - 1)
+                                continue;
                             var allowed = i == 0 ? _road.DirectionAllowStartToEnd : _road.DirectionAllowEndToStart;
                             Handles.color = allowed ? new Color(0.13f, 0.87f, 0.18f) : new Color(0.37f, 0.18f, 0.20f);
                             var i0 = i == 0 ? 0 : -1;
@@ -219,7 +222,7 @@ namespace Barmetler.RoadSystem
                             var handleSize = scale * HandleUtility.GetHandleSize(arrPos);
                             arrPos += scale * HandleUtility.GetHandleSize(arrPos) * arrForward;
                             if (EnabledButton(!hasModifiers, arrPos, Quaternion.LookRotation(arrForward, arrUp),
-                                    handleSize, handleSize, e.type, Handles.ConeHandleCap))
+                                    handleSize, handleSize, currentEvent.type, Handles.ConeHandleCap))
                             {
                                 if (i == 0)
                                     _road.DirectionAllowStartToEnd = !allowed;
@@ -241,7 +244,7 @@ namespace Barmetler.RoadSystem
                 rot = RoadUtilities.GetRotationAtWorldSpace(_road, _selectedAnchorPoint, out forward, out _);
             }
 
-            if (e.control) return;
+            if (currentEvent.control) return;
             switch (Tools.current)
             {
                 case Tool.Move:
@@ -361,8 +364,10 @@ namespace Barmetler.RoadSystem
                         var c = ((p.index + 1) / 3 * 3) == _selectedAnchorPoint
                             ? (0.7f * Color.cyan + 0.3f * Color.black)
                             : Color.red;
-                        Handles.color = e.alt ? Color.grey : (p.index % 3 == 0 ? c : (c + Color.white * 0.4f));
-                        if (e.alt || e.shift || e.control)
+                        Handles.color = currentEvent.alt
+                            ? Color.grey
+                            : (p.index % 3 == 0 ? c : (c + Color.white * 0.4f));
+                        if (currentEvent.alt || currentEvent.shift || currentEvent.control)
                         {
                             Handles.SphereHandleCap(0, p.pos, Quaternion.identity,
                                 0.2f * HandleUtility.GetHandleSize(p.pos), EventType.Repaint);
@@ -792,6 +797,21 @@ namespace Barmetler.RoadSystem
             Handles.BeginGUI();
             _windowRect = GUILayout.Window(0, _windowRect, windowID =>
             {
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button(EditorGUIUtility.IconContent("ArrowNavigationLeft"),
+                        GUILayout.Width(24), GUILayout.Height(24)))
+                    _selectedAnchorPoint = _selectedAnchorPoint <= 0
+                        ? _road.NumPoints - 1
+                        : _selectedAnchorPoint - 3;
+                GUI.enabled = _selectedAnchorPoint != -1;
+                if (GUILayout.Button("Deselect (ESC)", GUILayout.Height(24))) _selectedAnchorPoint = -1;
+                GUI.enabled = true;
+                if (GUILayout.Button(EditorGUIUtility.IconContent("ArrowNavigationRight"),
+                        GUILayout.Width(24), GUILayout.Height(24)))
+                    _selectedAnchorPoint = _selectedAnchorPoint < 0 || _selectedAnchorPoint >= _road.NumPoints - 1
+                        ? 0
+                        : _selectedAnchorPoint + 3;
+                EditorGUILayout.EndHorizontal();
                 if (_selectedAnchorPoint != -1)
                 {
                     var oldVec = _road.transform.TransformPoint(_road[_selectedAnchorPoint]);
