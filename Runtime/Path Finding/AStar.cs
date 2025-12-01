@@ -44,6 +44,8 @@ namespace Barmetler
 
         /// <summary>
         /// Find the shortest path from one point to another in a di-graph.
+        /// <br/>
+        /// This method is obsolete. Use <see cref="FindShortestPath"/> instead.
         /// </summary>
         /// <typeparam name="NodeType">- Must Extend AStar.NodeBase</typeparam>
         /// <param name="nodes"></param>
@@ -52,6 +54,7 @@ namespace Barmetler
         /// <param name="goal"></param>
         /// <param name="heuristic">Eulerian distance to goal per default.</param>
         /// <returns>Shortest path from start to goal.</returns>
+        [Obsolete]
         public static List<NodeType> FindShortestPath<NodeType>(
             List<NodeType> nodes, TwoDimensionalArray<float> weights, NodeType start, NodeType goal,
             Heuristic<NodeType> heuristic = null, int maxSteps = 10000
@@ -169,6 +172,16 @@ namespace Barmetler
 
         public static FunctionPointer<Heuristic> DijkstraHeuristic => DijkstraHeuristicLazy.Value;
 
+        /// <summary>
+        /// Find the shortest path from one point to another in a di-graph.
+        /// </summary>
+        /// <param name="nodes"></param>
+        /// <param name="weights"></param>
+        /// <param name="start"></param>
+        /// <param name="goal"></param>
+        /// <param name="stepsTaken"></param>
+        /// <param name="heuristic"></param>
+        /// <returns></returns>
         public static unsafe int[] FindShortestPath(
             NativeArray<float3> nodes, ExtendedTwoDimensionalNativeArray<float> weights, int start, int goal,
             out int stepsTaken,

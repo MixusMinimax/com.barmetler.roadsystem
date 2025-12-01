@@ -10,7 +10,7 @@ namespace Tests.Runtime
 {
     public class UtilTests
     {
-        string[] randomWords = new[]
+        string[] randomWords =
         {
             "pace",
             "steel",

@@ -518,7 +518,7 @@ namespace Barmetler.RoadSystem
                     }
                 }
 
-                // Connect all nodes with 1000x their distance, so that islands can still connect, and not exception will be thrown.
+                // Connect all nodes with 1000x their distance, so that islands can still connect, and no exception will be thrown.
                 // This shouldn't really be needed, because islands shouldn't exist in a RoadSystem, so it's more of a failsafe.
                 for (var i = 0; i < count; ++i)
                 {
