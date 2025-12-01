@@ -52,17 +52,16 @@ namespace Barmetler.RoadSystem
                 Shader.SetGlobalFloat(HandleSize, 100 * size);
                 HandleUtility.handleMaterial.SetPass(0);
 
-                Graphics.DrawMeshNow(mesh,
-                    Handles.matrix * Matrix4x4.TRS(_intersection.transform.position,
-                        _intersection.transform.rotation * Quaternion.Euler(0, 90, 90),
-                        Vector3.one), -1
-                );
-
-                Graphics.DrawMeshNow(mesh,
-                    Handles.matrix * Matrix4x4.TRS(_intersection.transform.position,
-                        _intersection.transform.rotation * Quaternion.Euler(180, 90, 90),
-                        Vector3.one), -1
-                );
+                // Graphics.DrawMeshNow(mesh,
+                //     Handles.matrix * Matrix4x4.TRS(_intersection.transform.position,
+                //         _intersection.transform.rotation * Quaternion.Euler(0, 90, 90),
+                //         Vector3.one), -1
+                // );
+                // Graphics.DrawMeshNow(mesh,
+                //     Handles.matrix * Matrix4x4.TRS(_intersection.transform.position,
+                //         _intersection.transform.rotation * Quaternion.Euler(180, 90, 90),
+                //         Vector3.one), -1
+                // );
 
                 // Handles.ArrowHandleCap();
             }
