@@ -47,7 +47,7 @@ namespace Barmetler.RoadSystem
                 {
                     var spacing = HandleUtility.GetHandleSize((edge.start + edge.end) / 2);
                     var length = Vector3.Distance(edge.start, edge.end);
-                    var amount = Math.Max(2, (int) ((length / spacing - 1) / 2) * 2);
+                    var amount = Math.Max(2, (int)((length / spacing - 1) / 2) * 2);
 
                     var forward = Vector3.Normalize(edge.direction == RoadDirection.StartToEnd
                         ? edge.end - edge.start
@@ -122,15 +122,20 @@ namespace Barmetler.RoadSystem
                 if (GUILayout.Button("Construct Graph + Rebuild All Roads", GUILayout.Height(32)))
                 {
                     var sb = new StringBuilder();
+                    var totalTime = 0f;
                     var t = Time.realtimeSinceStartup;
                     _roadSystem.ConstructGraph();
-                    sb.AppendLine($"Constructed graph in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.");
+                    var ms = (Time.realtimeSinceStartup - t) * 1000;
+                    totalTime += ms;
+                    sb.AppendLine($"Constructed graph in {ms:0.000}ms.");
                     var generators = _roadSystem.GetComponentsInChildren<RoadMeshGenerator>();
                     t = Time.realtimeSinceStartup;
                     foreach (var g in generators)
                         g.GenerateRoadMesh();
-                    sb.Append(
-                        $"Generated {generators.Length} road meshes in {(Time.realtimeSinceStartup - t) * 1000:0.000}ms.");
+                    ms = (Time.realtimeSinceStartup - t) * 1000;
+                    totalTime += ms;
+                    sb.AppendLine($"Generated {generators.Length} road meshes in {ms:0.000}ms.");
+                    sb.Append($"(Total: {totalTime:0.000}ms)");
                     _meshGenerationTime = sb.ToString();
 
                     EditorUtility.SetDirty(_roadSystem);
