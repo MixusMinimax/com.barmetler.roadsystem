@@ -7,7 +7,7 @@ using UnityEngine.Rendering;
 
 namespace Barmetler.RoadSystem.Util
 {
-    [BurstCompatible]
+    // [BurstCompatible] // this annotation changes names between com.unity.collections versions.
     public struct VertexAttributeData : IDisposable
     {
         [ReadOnly]

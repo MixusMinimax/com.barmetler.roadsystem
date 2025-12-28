@@ -10,7 +10,7 @@ namespace Barmetler.RoadSystem.Util
     /// <summary>
     /// MinHeap, with support for updating values.
     /// </summary>
-    [BurstCompatible]
+    // [BurstCompatible] // this annotation changes names between com.unity.collections versions.
     [DebuggerDisplay("Length = {Count}/{_nodes.Length}")]
     [SuppressMessage("ReSharper", "SwapViaDeconstruction")] // tuples don't work with Burst !!!
     public struct NativeMinHeap
