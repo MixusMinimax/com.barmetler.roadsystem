@@ -152,7 +152,11 @@ namespace Barmetler.RoadSystem
 
             var buttons = new List<IPoint>();
 
+#if UNITY_2023_1_OR_NEWER
+            foreach (var intersection in FindObjectsByType<Intersection>(FindObjectsSortMode.None))
+#else
             foreach (var intersection in FindObjectsOfType<Intersection>())
+#endif
             {
                 foreach (var anchor in intersection.AnchorPoints)
                 {
@@ -160,7 +164,11 @@ namespace Barmetler.RoadSystem
                 }
             }
 
+#if UNITY_2023_1_OR_NEWER
+            foreach (var road in FindObjectsByType<Road>(FindObjectsSortMode.None))
+#else
             foreach (var road in FindObjectsOfType<Road>())
+#endif
             {
                 if (!road.start)
                     buttons.Add(new RoadPoint { road = road, isStart = true });
@@ -172,8 +180,8 @@ namespace Barmetler.RoadSystem
 
             buttons = buttons
                 .Where(Filter)
-                .OrderByDescending(e =>
-                    Vector3.Dot(Camera.current.transform.forward, e.position - Camera.current.transform.position))
+                .OrderByDescending(point =>
+                    Vector3.Dot(Camera.current.transform.forward, point.position - Camera.current.transform.position))
                 .ToList();
 
             const float size = 1.5f;
