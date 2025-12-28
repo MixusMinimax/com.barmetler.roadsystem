@@ -8,7 +8,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
 using static Unity.Mathematics.math;
@@ -58,15 +57,6 @@ namespace Barmetler.RoadSystem
             _road = GetComponent<Road>();
             _mf = GetComponent<MeshFilter>();
         }
-
-        private static ProfilerMarker _extractResultsMarker = new ProfilerMarker("Extract Results");
-        private static ProfilerMarker _disposeMarker = new ProfilerMarker("Dispose");
-        private static ProfilerMarker _setVerticesMarker = new ProfilerMarker("Set Vertices");
-        private static ProfilerMarker _setIndicesMarker = new ProfilerMarker("Set Indices");
-        private static ProfilerMarker _setUVsMarker = new ProfilerMarker("Set UVs");
-        private static ProfilerMarker _recalculateNormalsMarker = new ProfilerMarker("Recalculate Normals");
-        private static ProfilerMarker _recalculateTangentsMarker = new ProfilerMarker("Recalculate Tangents");
-        private static ProfilerMarker _recalculateBoundsMarker = new ProfilerMarker("Recalculate Bounds");
 
         /// <summary>
         ///
@@ -465,7 +455,7 @@ namespace Barmetler.RoadSystem
                 {
                     var subMesh = SourceMeshData.GetSubMesh(subMeshIndex);
                     var subMeshIndices = indices[subMeshIndex];
-                    indexData.GetSubArray(indexOffset, subMeshIndices.Length).CopyFrom(subMeshIndices);
+                    indexData.GetSubArray(indexOffset, subMeshIndices.Length).CopyFrom(subMeshIndices.AsArray());
 
                     boundsMin = new float3(float.MaxValue);
                     boundsMax = new float3(float.MinValue);
