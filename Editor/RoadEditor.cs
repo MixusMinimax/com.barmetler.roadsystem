@@ -127,21 +127,21 @@ namespace Barmetler.RoadSystem
                 {
                     case RoadDirection.Bidirectional:
                         Handles.color = Color.blue * 0.8f;
-                        Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, EventType.Repaint);
+                        Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, Event.current.type);
                         break;
                     case RoadDirection.Closed:
                         Handles.color = Color.red * 0.8f;
-                        Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, EventType.Repaint);
+                        Handles.SphereHandleCap(0, p.position, Quaternion.identity, 0.2f, Event.current.type);
                         break;
                     case RoadDirection.StartToEnd:
                         Handles.color = Color.blue * 0.8f;
                         Handles.ConeHandleCap(0, p.position, Quaternion.LookRotation(p.forward, p.normal), 0.2f,
-                            EventType.Repaint);
+                            Event.current.type);
                         break;
                     case RoadDirection.EndToStart:
                         Handles.color = Color.blue * 0.8f;
                         Handles.ConeHandleCap(0, p.position, Quaternion.LookRotation(-p.forward, p.normal), 0.2f,
-                            EventType.Repaint);
+                            Event.current.type);
                         break;
                 }
 
@@ -289,7 +289,7 @@ namespace Barmetler.RoadSystem
                     {
                         Handles.color = hasModifiers ? Color.grey : Color.white * 0.7f;
                         Handles.SphereHandleCap(0, pos, Quaternion.identity,
-                            (hasModifiers ? 0.2f : 0.3f) * HandleUtility.GetHandleSize(pos), EventType.Repaint);
+                            (hasModifiers ? 0.2f : 0.3f) * HandleUtility.GetHandleSize(pos), Event.current.type);
                         Handles.color = Color.red + Color.white * 0.4f;
                         for (var i = -1; i <= 1; i += 2)
                         {
@@ -304,7 +304,7 @@ namespace Barmetler.RoadSystem
                             if (hasModifiers)
                             {
                                 Handles.SphereHandleCap(0, hPos, Quaternion.identity,
-                                    0.2f * HandleUtility.GetHandleSize(pos), EventType.Repaint);
+                                    0.2f * HandleUtility.GetHandleSize(pos), Event.current.type);
                             }
                             else
                             {
@@ -363,7 +363,7 @@ namespace Barmetler.RoadSystem
                         if (currentEvent.alt || currentEvent.shift || currentEvent.control)
                         {
                             Handles.SphereHandleCap(0, p.pos, Quaternion.identity,
-                                0.2f * HandleUtility.GetHandleSize(p.pos), EventType.Repaint);
+                                0.2f * HandleUtility.GetHandleSize(p.pos), Event.current.type);
                         }
                         else
                         {
@@ -485,7 +485,7 @@ namespace Barmetler.RoadSystem
 
                     Handles.color = tooClose ? Color.grey : Color.white;
                     Handles.SphereHandleCap(0, hoverPos, Quaternion.identity,
-                        0.2f * HandleUtility.GetHandleSize(hoverPos), EventType.Repaint);
+                        0.2f * HandleUtility.GetHandleSize(hoverPos), Event.current.type);
                     Handles.color = Color.red;
                     Handles.DrawLine(hoverPos, hoverPos + normal * (0.5f * HandleUtility.GetHandleSize(hoverPos)));
                     if (tooClose)
@@ -564,7 +564,7 @@ namespace Barmetler.RoadSystem
                         0,
                         selectedEndpoint.position, Quaternion.identity,
                         0.3f * HandleUtility.GetHandleSize(selectedEndpoint.position),
-                        EventType.Repaint);
+                        Event.current.type);
 
 
                     var depth = Vector3.Dot(Camera.current.transform.forward,
@@ -615,13 +615,13 @@ namespace Barmetler.RoadSystem
                     Handles.ArrowHandleCap(0,
                         position + 0.3f * HandleUtility.GetHandleSize(selectedEndpoint.position) * up,
                         Quaternion.LookRotation(up), 1 * HandleUtility.GetHandleSize(selectedEndpoint.position),
-                        EventType.Repaint);
+                        Event.current.type);
 
                     Handles.SphereHandleCap(
                         0,
                         position, Quaternion.identity,
                         0.3f * HandleUtility.GetHandleSize(selectedEndpoint.position),
-                        EventType.Repaint);
+                        Event.current.type);
 
                     if (e.type == EventType.MouseDown && e.button == 0)
                     {
