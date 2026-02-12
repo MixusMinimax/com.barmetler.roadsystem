@@ -116,15 +116,8 @@ namespace Barmetler.RoadSystem
             }
 
             var points = _road.GetEvenlySpacedPoints(1, 1).Select(e => e.ToWorldSpace(_road.transform)).ToArray();
-            var lastPos = Vector3.zero;
             Handles.color = Color.green * 0.8f;
-            for (var i = 0; i < points.Length; ++i)
-            {
-                var p = points[i];
-                if (i > 0)
-                    Handles.DrawLine(lastPos, p.position);
-                lastPos = p.position;
-            }
+            Handles.DrawPolyLine(points.Select(p => p.position).ToArray());
 
             var roadDirection = _road.direction;
 
