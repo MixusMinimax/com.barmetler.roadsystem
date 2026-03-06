@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Barmetler.DictExtensions;
@@ -161,12 +162,12 @@ namespace Barmetler
         private static float DijkstraHeuristicFun(in float3 node, in float3 goal) => 0;
 
         private static readonly Lazy<FunctionPointer<Heuristic>> DistanceHeuristicLazy =
-            new Lazy<FunctionPointer<Heuristic>>(
-                () => BurstCompiler.CompileFunctionPointer<Heuristic>(DistanceHeuristicFun));
+            new Lazy<FunctionPointer<Heuristic>>(() =>
+                BurstCompiler.CompileFunctionPointer<Heuristic>(DistanceHeuristicFun));
 
         private static readonly Lazy<FunctionPointer<Heuristic>> DijkstraHeuristicLazy =
-            new Lazy<FunctionPointer<Heuristic>>(
-                () => BurstCompiler.CompileFunctionPointer<Heuristic>(DijkstraHeuristicFun));
+            new Lazy<FunctionPointer<Heuristic>>(() =>
+                BurstCompiler.CompileFunctionPointer<Heuristic>(DijkstraHeuristicFun));
 
         public static FunctionPointer<Heuristic> DistanceHeuristic => DistanceHeuristicLazy.Value;
 
@@ -207,7 +208,71 @@ namespace Barmetler
             return path;
         }
 
+        /// <summary>
+        /// Find the shortest path from one point to another in a di-graph.
+        /// </summary>
+        /// <param name="onCancel"></param>
+        /// <param name="resultConsumer"></param>
+        /// <param name="nodes"></param>
+        /// <param name="weights"></param>
+        /// <param name="start"></param>
+        /// <param name="goal"></param>
+        /// <param name="heuristic"></param>
+        /// <returns></returns>
+        [SuppressMessage("ReSharper", "AccessToModifiedClosure")]
+        [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
+        public static IEnumerator FindShortestPathAsync(
+            Consumer<Action> onCancel,
+            Consumer<int[]> resultConsumer,
+            NativeArray<float3> nodes,
+            ExtendedTwoDimensionalNativeArray<float> weights, int start, int goal,
+            FunctionPointer<Heuristic> heuristic = default)
+        {
+            if (!heuristic.IsCreated) heuristic = DistanceHeuristic;
+            var path = new NativeList<int>(Allocator.Persistent);
+            var job = new FindShortestPathJob
+            {
+                HeuristicPtr = heuristic,
+                Nodes = nodes,
+                Weights = weights,
+                Start = start,
+                Goal = goal,
+                MaxSteps = 10000,
+                StepsTaken = null,
+                Path = path
+            };
+            var handle = job.Schedule();
+            var state = 0;
+            onCancel(() =>
+            {
+                // this is fine to be blocking. It has to be. Because dispose jobs depending on the job handle
+                // may not actually run if we exit play mode, for instance. Since all pending jobs are flushed.
+                // importantly, a play mode exit is exactly where this hook is needed.
+                handle.Complete();
+                if (state == 0)
+                {
+                    state = -1;
+                    path.Dispose();
+                    nodes.Dispose();
+                    weights.Dispose();
+                }
+            });
+            yield return new WaitUntil(() => handle.IsCompleted);
+            handle.Complete();
+            var arr = path.AsArray().ToArray();
+            if (state == 0)
+            {
+                state = 1;
+                path.Dispose();
+                nodes.Dispose();
+                weights.Dispose();
+            }
+
+            resultConsumer(arr);
+        }
+
         [SuppressMessage("ReSharper", "SwapViaDeconstruction")] // tuples don't work with Burst !!!
+        [BurstCompile(CompileSynchronously = true)]
         private unsafe struct FindShortestPathJob : IJob
         {
             public FunctionPointer<Heuristic> HeuristicPtr;
@@ -284,7 +349,7 @@ namespace Barmetler
                 }
 
                 cleanup:
-                *StepsTaken = step;
+                if (StepsTaken != null) *StepsTaken = step;
                 cameFrom.Dispose();
                 gScore.Dispose();
                 fScore.Dispose();

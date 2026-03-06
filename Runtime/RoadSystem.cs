@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Barmetler.RoadSystem.Util;
@@ -57,7 +58,7 @@ namespace Barmetler.RoadSystem
             ConstructGraph();
             foreach (var road in roads)
             {
-                road.OnCurveChanged(true);
+                road.OnCurveChanged();
             }
         }
 
@@ -215,6 +216,53 @@ namespace Barmetler.RoadSystem
             );
 
             return GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
+        }
+
+        public IEnumerator FindPathAsync(
+            Consumer<Action> onCancel,
+            Consumer<PointList> resultConsumer,
+            Vector3 startPosWorld, Vector3 goalPosWorld, List<Edge> edges = null,
+            float yScale = 1, float stepSize = 1, float minDstToRoadToConnect = 10)
+        {
+            var startDistRoad = GetMinDistance(
+                startPosWorld, stepSize, yScale,
+                out var startRoad, out var startPosition1, out var startDstAlongRoad1);
+            var startDistIntersection = GetMinDistance(
+                startPosWorld, yScale,
+                out _, out var startAnchor,
+                out var startPosition2, out var startDstAlongRoad2);
+            var startUseRoad = startDistRoad < startDistIntersection;
+
+            var goalDistRoad = GetMinDistance(
+                goalPosWorld, stepSize, yScale,
+                out var goalRoad, out var goalPosition1, out var goalDstAlongRoad1);
+            var goalDistIntersection = GetMinDistance(
+                goalPosWorld, yScale,
+                out _, out var goalAnchor,
+                out var goalPosition2, out var goalDstAlongRoad2);
+            var goalUseRoad = goalDistRoad < goalDistIntersection;
+
+            if (!graph.NativeArrayIsCreated)
+                graph.InitNativeArray();
+
+            List<Graph.Node> nodes = null;
+            yield return graph.FindPathBurstAsync(
+                onCancel,
+                value => nodes = value,
+                startUseRoad ? startPosition1 : startPosition2,
+                startUseRoad ? startRoad : null,
+                startUseRoad ? null : startAnchor,
+                startUseRoad ? startDstAlongRoad1 : startDstAlongRoad2,
+                goalUseRoad ? goalPosition1 : goalPosition2,
+                goalUseRoad ? goalRoad : null,
+                goalUseRoad ? null : goalAnchor,
+                goalUseRoad ? goalDstAlongRoad1 : goalDstAlongRoad2,
+                edges: edges
+            );
+
+            var result = GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
+
+            resultConsumer(result);
         }
 
         private static PointList GenerateSmoothPath(
@@ -401,12 +449,14 @@ namespace Barmetler.RoadSystem
             [Serializable]
             public class Node : AStar.NodeBase
             {
+                // ReSharper disable InconsistentNaming
                 public enum NodeType
                 {
                     INTERSECTION,
                     ANCHOR,
                     ENTRY_EXIT
                 }
+                // ReSharper restore InconsistentNaming
 
                 public NodeType nodeType;
                 public RoadSystem roadSystem;
@@ -475,7 +525,7 @@ namespace Barmetler.RoadSystem
             [SerializeField]
             private TwoDimensionalArray<float> weights = new TwoDimensionalArray<float>(0, 0);
 
-            private TwoDimensionalNativeArray<float> _weightsNativeArray;
+            private RcTwoDimensionalNativeArray<float> _weightsNativeArray;
 
             public bool NativeArrayIsCreated => _weightsNativeArray.IsCreated;
 
@@ -483,7 +533,7 @@ namespace Barmetler.RoadSystem
             {
                 if (_weightsNativeArray.IsCreated) _weightsNativeArray.Dispose();
                 _weightsNativeArray =
-                    new TwoDimensionalNativeArray<float>(weights.Width, weights.Height, Allocator.Persistent);
+                    new RcTwoDimensionalNativeArray<float>(weights.Width, weights.Height, Allocator.Persistent);
                 _weightsNativeArray.CopyFrom(weights.DirectArray);
             }
 
@@ -603,28 +653,19 @@ namespace Barmetler.RoadSystem
                     node => node.nodeType == NodeType.ANCHOR && node.anchor == anchor);
             }
 
-            /// <summary>
-            /// Find the shortest path from one point to another in the road system. This burst version is about 3x as
-            /// fast as the non-burst version.
-            /// </summary>
-            /// <param name="startPosWorld">World position of the start point.</param>
-            /// <param name="startRoad">Road the start point is on, or null if it is on an intersection.</param>
-            /// <param name="startAnchor">Anchor the start point is on, or null if it is on a road.</param>
-            /// <param name="startDistanceAlongRoad">Distance along the road or anchor the start point is at.</param>
-            /// <param name="goalPosWorld">World position of the goal point.</param>
-            /// <param name="goalRoad">Road the goal point is on, or null if it is on an intersection.</param>
-            /// <param name="goalAnchor">Anchor the goal point is on, or null if it is on a road.</param>
-            /// <param name="goalDistanceAlongRoad">Distance along the road or anchor the goal point is at.</param>
-            /// <param name="stepsTaken"></param>
-            /// <param name="edges">May be null. If not null, will be populated with the edges in the path.
-            /// </param>
-            /// <returns></returns>
-            /// <exception cref="InvalidOperationException"></exception>
-            /// <exception cref="ArgumentException"></exception>
-            public List<Node> FindPathBurst(
-                Vector3 startPosWorld, Road startRoad, RoadAnchor startAnchor, float startDistanceAlongRoad,
-                Vector3 goalPosWorld, Road goalRoad, RoadAnchor goalAnchor, float goalDistanceAlongRoad,
-                out int stepsTaken, List<Edge> edges = null)
+            private
+                (
+                List<Node> nodesList,
+                NativeArray<float3> nativeNodes,
+                ExtendedTwoDimensionalNativeArray<float> weightsWithStartAndGoal,
+                int startIndex,
+                int goalIndex
+                )
+                FindPath_Arguments(
+                    Vector3 startPosWorld, Road startRoad, RoadAnchor startAnchor, float startDistanceAlongRoad,
+                    Vector3 goalPosWorld, Road goalRoad, RoadAnchor goalAnchor, float goalDistanceAlongRoad,
+                    List<Edge> edges = null,
+                    Allocator allocator = Allocator.TempJob)
             {
                 if (startRoad == null && startAnchor == null)
                     throw new ArgumentException("Start must be either a road or an anchor.");
@@ -688,7 +729,7 @@ namespace Barmetler.RoadSystem
 
                 var weightsWithStartAndGoal = new ExtendedTwoDimensionalNativeArray<float>(
                     _weightsNativeArray, 2, 2,
-                    weights.Width + 2, weights.Height + 2, Allocator.TempJob);
+                    weights.Width + 2, weights.Height + 2, allocator);
 
                 for (var i = 0; i < weightsWithStartAndGoal.Width; ++i)
                 for (var j = 0; j < 2; ++j)
@@ -764,9 +805,46 @@ namespace Barmetler.RoadSystem
                     }
                 }
 
-                var nativeNodes = new NativeArray<float3>(nodesList.Count, Allocator.TempJob);
+                var nativeNodes = new NativeArray<float3>(nodesList.Count, allocator);
                 for (var i = 0; i < nodesList.Count; ++i)
                     nativeNodes[i] = nodesList[i].position;
+
+                return (nodesList, nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex);
+            }
+
+            /// <summary>
+            /// Find the shortest path from one point to another in the road system. This burst version is about 3x as
+            /// fast as the non-burst version.
+            /// </summary>
+            /// <param name="startPosWorld">World position of the start point.</param>
+            /// <param name="startRoad">Road the start point is on, or null if it is on an intersection.</param>
+            /// <param name="startAnchor">Anchor the start point is on, or null if it is on a road.</param>
+            /// <param name="startDistanceAlongRoad">Distance along the road or anchor the start point is at.</param>
+            /// <param name="goalPosWorld">World position of the goal point.</param>
+            /// <param name="goalRoad">Road the goal point is on, or null if it is on an intersection.</param>
+            /// <param name="goalAnchor">Anchor the goal point is on, or null if it is on a road.</param>
+            /// <param name="goalDistanceAlongRoad">Distance along the road or anchor the goal point is at.</param>
+            /// <param name="stepsTaken"></param>
+            /// <param name="edges">May be null. If not null, will be populated with the edges in the path.
+            /// </param>
+            /// <returns></returns>
+            /// <exception cref="InvalidOperationException"></exception>
+            /// <exception cref="ArgumentException"></exception>
+            public List<Node> FindPathBurst(
+                Vector3 startPosWorld, Road startRoad, RoadAnchor startAnchor, float startDistanceAlongRoad,
+                Vector3 goalPosWorld, Road goalRoad, RoadAnchor goalAnchor, float goalDistanceAlongRoad,
+                out int stepsTaken, List<Edge> edges = null)
+            {
+                var (
+                    nodesList,
+                    nativeNodes,
+                    weightsWithStartAndGoal,
+                    startIndex, goalIndex
+                    ) = FindPath_Arguments(
+                    startPosWorld, startRoad, startAnchor, startDistanceAlongRoad,
+                    goalPosWorld, goalRoad, goalAnchor, goalDistanceAlongRoad,
+                    edges,
+                    Allocator.TempJob);
 
                 var pathIndices = AStar.FindShortestPath(nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex,
                     out stepsTaken, AStar.DistanceHeuristic);
@@ -778,6 +856,55 @@ namespace Barmetler.RoadSystem
                 path.AddRange(pathIndices.Select(t => nodesList[t]));
 
                 return path;
+            }
+
+            /// <summary>
+            /// Find the shortest path from one point to another in the road system. This burst version is about 3x as
+            /// fast as the non-burst version.
+            /// </summary>
+            /// <param name="onCancel"></param>
+            /// <param name="resultConsumer">Callback to accept the result.</param>
+            /// <param name="startPosWorld">World position of the start point.</param>
+            /// <param name="startRoad">Road the start point is on, or null if it is on an intersection.</param>
+            /// <param name="startAnchor">Anchor the start point is on, or null if it is on a road.</param>
+            /// <param name="startDistanceAlongRoad">Distance along the road or anchor the start point is at.</param>
+            /// <param name="goalPosWorld">World position of the goal point.</param>
+            /// <param name="goalRoad">Road the goal point is on, or null if it is on an intersection.</param>
+            /// <param name="goalAnchor">Anchor the goal point is on, or null if it is on a road.</param>
+            /// <param name="goalDistanceAlongRoad">Distance along the road or anchor the goal point is at.</param>
+            /// <param name="edges">May be null. If not null, will be populated with the edges in the path.
+            /// </param>
+            /// <returns></returns>
+            /// <exception cref="InvalidOperationException"></exception>
+            /// <exception cref="ArgumentException"></exception>
+            public IEnumerator FindPathBurstAsync(
+                Consumer<Action> onCancel,
+                Consumer<List<Node>> resultConsumer,
+                Vector3 startPosWorld, Road startRoad, RoadAnchor startAnchor, float startDistanceAlongRoad,
+                Vector3 goalPosWorld, Road goalRoad, RoadAnchor goalAnchor, float goalDistanceAlongRoad,
+                List<Edge> edges = null)
+            {
+                var (
+                    nodesList,
+                    nativeNodes,
+                    weightsWithStartAndGoal,
+                    startIndex, goalIndex
+                    ) = FindPath_Arguments(
+                    startPosWorld, startRoad, startAnchor, startDistanceAlongRoad,
+                    goalPosWorld, goalRoad, goalAnchor, goalDistanceAlongRoad,
+                    edges,
+                    Allocator.Persistent);
+
+                int[] pathIndices = null;
+                yield return AStar.FindShortestPathAsync(onCancel,
+                    value => pathIndices = value,
+                    nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex,
+                    AStar.DistanceHeuristic);
+
+                var path = new List<Node>(pathIndices.Length);
+                path.AddRange(pathIndices.Select(t => nodesList[t]));
+
+                resultConsumer(path);
             }
         }
     }

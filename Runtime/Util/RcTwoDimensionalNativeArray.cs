@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Threading;
 using JetBrains.Annotations;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
+using Debug = UnityEngine.Debug;
 
 namespace Barmetler.RoadSystem.Util
 {
@@ -13,15 +14,19 @@ namespace Barmetler.RoadSystem.Util
     /// <typeparam name="T">Type of the elements in the array.</typeparam>
     [DebuggerDisplay("Length = {Length}")]
     [DebuggerTypeProxy(typeof(TwoDimensionalNativeArrayDebugView<>))]
-    // [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
-    public struct TwoDimensionalNativeArray<T> where T : struct
+    public struct RcTwoDimensionalNativeArray<T> where T : struct
     {
         public readonly int Width;
         public readonly int Height;
         public readonly int Length;
         private NativeArray<T> _data;
 
-        public TwoDimensionalNativeArray(int width, int height, Allocator allocator)
+        [NativeDisableUnsafePtrRestriction]
+        private unsafe int* _referenceCounter;
+
+        private readonly Allocator _allocator;
+
+        public unsafe RcTwoDimensionalNativeArray(int width, int height, Allocator allocator)
         {
             if (width < 0 || height < 0)
                 throw new ArgumentException("Width and height must be >= 0");
@@ -29,14 +34,37 @@ namespace Barmetler.RoadSystem.Util
             Height = height;
             Length = width * height;
             _data = new NativeArray<T>(width * height, allocator);
+            _allocator = allocator;
+
+
+            var mem = UnsafeUtility.Malloc(sizeof(int), 4, allocator);
+            _referenceCounter = (int*)mem;
+            *_referenceCounter = 1;
         }
 
         public bool IsCreated => _data.IsCreated;
 
         [WriteAccessRequired]
-        public void Dispose() => _data.Dispose();
+        public unsafe void Inc()
+        {
+            Interlocked.Increment(ref *_referenceCounter);
+        }
 
-        public void Dispose(JobHandle inputDeps) => _data.Dispose(inputDeps);
+        [WriteAccessRequired]
+        public unsafe void Dispose()
+        {
+            var counter = Interlocked.Decrement(ref *_referenceCounter);
+            if (counter == 0)
+            {
+                _data.Dispose();
+                UnsafeUtility.Free(_referenceCounter, _allocator);
+                _referenceCounter = null;
+            }
+            else if (counter < 0)
+            {
+                throw new InvalidOperationException("The TwoDimensionalNativeArray has already been destroyed.");
+            }
+        }
 
         public T this[int x, int y]
         {
@@ -67,9 +95,9 @@ namespace Barmetler.RoadSystem.Util
 
     internal sealed class TwoDimensionalNativeArrayDebugView<T> where T : struct
     {
-        private TwoDimensionalNativeArray<T> _array;
+        private RcTwoDimensionalNativeArray<T> _array;
 
-        public TwoDimensionalNativeArrayDebugView(TwoDimensionalNativeArray<T> array) => _array = array;
+        public TwoDimensionalNativeArrayDebugView(RcTwoDimensionalNativeArray<T> array) => _array = array;
 
         [UsedImplicitly] public T[] Items => _array.ToArray();
     }
@@ -88,11 +116,11 @@ namespace Barmetler.RoadSystem.Util
         public readonly int StartX;
         public readonly int StartY;
         public readonly int Length;
-        private TwoDimensionalNativeArray<T> _data;
-        private TwoDimensionalNativeArray<T> _horizontal;
-        private TwoDimensionalNativeArray<T> _vertical;
+        private RcTwoDimensionalNativeArray<T> _data;
+        private RcTwoDimensionalNativeArray<T> _horizontal;
+        private RcTwoDimensionalNativeArray<T> _vertical;
 
-        public ExtendedTwoDimensionalNativeArray(TwoDimensionalNativeArray<T> data, int startX, int startY, int width,
+        public ExtendedTwoDimensionalNativeArray(RcTwoDimensionalNativeArray<T> data, int startX, int startY, int width,
             int height, Allocator allocator)
         {
             if (startX + data.Width > width || startY + data.Height > height)
@@ -103,10 +131,11 @@ namespace Barmetler.RoadSystem.Util
             StartY = startY;
             Length = width * height;
             _data = data;
+            data.Inc();
             // top and bottom rows in full width
-            _horizontal = new TwoDimensionalNativeArray<T>(width, height - _data.Height, allocator);
+            _horizontal = new RcTwoDimensionalNativeArray<T>(width, height - _data.Height, allocator);
             // left and right columns without top and bottom rows
-            _vertical = new TwoDimensionalNativeArray<T>(width - _data.Width, _data.Height, allocator);
+            _vertical = new RcTwoDimensionalNativeArray<T>(width - _data.Width, _data.Height, allocator);
         }
 
         public bool IsCreated => _data.IsCreated;
@@ -119,12 +148,7 @@ namespace Barmetler.RoadSystem.Util
         {
             _horizontal.Dispose();
             _vertical.Dispose();
-        }
-
-        public void Dispose(JobHandle inputDeps)
-        {
-            _horizontal.Dispose(inputDeps);
-            _vertical.Dispose(inputDeps);
+            _data.Dispose();
         }
 
         private enum Location
@@ -177,7 +201,7 @@ namespace Barmetler.RoadSystem.Util
                     case Location.Data:
                         return _data[index];
                     default:
-                        Debug.Fail("Invalid location.");
+                        Debug.LogError("Invalid location.");
                         return default;
                 }
             }
@@ -196,7 +220,7 @@ namespace Barmetler.RoadSystem.Util
                         _data[index] = value;
                         break;
                     default:
-                        Debug.Fail("Invalid location.");
+                        Debug.LogError("Invalid location.");
                         break;
                 }
             }
@@ -220,7 +244,7 @@ namespace Barmetler.RoadSystem.Util
                 case Location.Data:
                     return ref _data.ElementAt(index);
                 default:
-                    Debug.Fail("Invalid location.");
+                    Debug.LogError("Invalid location.");
                     return ref UnsafeUtility.AsRef<T>(null);
             }
         }

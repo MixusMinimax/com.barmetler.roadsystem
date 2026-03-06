@@ -1,5 +1,8 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using Barmetler.RoadSystem.Util;
+using JetBrains.Annotations;
 using Unity.Profiling;
 using UnityEngine;
 
@@ -18,20 +21,17 @@ namespace Barmetler.RoadSystem
         public float MinDistanceToRoadToConnect = 10;
 
         public PointList CurrentPoints { private set; get; } = new PointList();
-        private AsyncUpdater<PointList> _currentPoints;
+        private DebouncedUpdater<PointList> _currentPoints;
 
-        private void Awake()
-        {
-            _currentPoints = new AsyncUpdater<PointList>(this, GetNewWayPoints, new PointList(), 1f / 144);
-        }
+        public bool async;
+
 
         private void Update()
         {
+            _currentPoints ??= async
+                ? new DebouncedUpdater<PointList>(this, GetNewWayPointsAsync, new PointList(), 1f / 144)
+                : new DebouncedUpdater<PointList>(this, GetNewWayPoints, new PointList(), 1f / 144);
             _currentPoints.Update();
-        }
-
-        private void FixedUpdate()
-        {
             var points = _currentPoints.GetData();
             if (points != CurrentPoints)
             {
@@ -130,6 +130,37 @@ namespace Barmetler.RoadSystem
                 stepSize: Mathf.Max(0.1f, GraphStepSize),
                 minDstToRoadToConnect: MinDistanceToRoadToConnect
             );
+        }
+
+        private static readonly ProfilerMarker CancelPerfMarker =
+            new ProfilerMarker("RoadSystemNavigator.cs Cancel");
+
+        private event Action Cancel;
+
+        private void OnDisable()
+        {
+            using var marker = CancelPerfMarker.Auto();
+            Cancel?.Invoke();
+        }
+
+        private IEnumerator GetNewWayPointsAsync(Consumer<PointList> resultConsumer)
+        {
+            var cancellations = new List<Action>();
+            GetNewWayPointsPerfMarker.Begin();
+            yield return currentRoadSystem.FindPathAsync(
+                action =>
+                {
+                    cancellations.Add(action);
+                    Cancel += action;
+                },
+                resultConsumer,
+                transform.position, Goal,
+                yScale: MinDistanceYScale,
+                stepSize: Mathf.Max(0.1f, GraphStepSize),
+                minDstToRoadToConnect: MinDistanceToRoadToConnect
+            );
+            GetNewWayPointsPerfMarker.End();
+            foreach (var cancellation in cancellations) Cancel -= cancellation;
         }
     }
 }

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -13,15 +15,12 @@ namespace Barmetler.RoadSystem.Util
         private RoadSystemNavigator navigator;
 
         [SerializeField]
-        private float Tolerance = 0.1f;
-
-        [SerializeField]
         private float LineWidth = 2;
 
         [SerializeField, HideInInspector]
         private LineRenderer lineRenderer;
 
-        private AsyncUpdater<Vector3[]> _pathPoints;
+        private List<Bezier.OrientedPoint> _prevPoints;
 
         private void OnValidate()
         {
@@ -33,27 +32,19 @@ namespace Barmetler.RoadSystem.Util
             OnValidate();
         }
 
-        // Update is called once per frame
-        private void Update()
+        private void LateUpdate()
         {
-            _pathPoints ??= new AsyncUpdater<Vector3[]>(this, UpdateData, new Vector3[] { }, 1f / 144);
-            _pathPoints.Update();
-            var points = _pathPoints.GetData();
-            lineRenderer.positionCount = points.Length;
-            lineRenderer.SetPositions(points);
+            if (!navigator) return;
+            var points = navigator.CurrentPoints;
+            if (points == _prevPoints) return;
+
+            lineRenderer.positionCount = points.Count;
+            lineRenderer.SetPositions(points
+                .Select(e => Vector3.Scale(e.position, Vector3.forward + Vector3.right) + Vector3.up * 100)
+                .ToArray());
             lineRenderer.widthMultiplier = LineWidth;
-        }
 
-        private Vector3[] UpdateData()
-        {
-            if (!navigator) return new Vector3[] { };
-            var points = navigator.CurrentPoints.Select(e => e.position).ToList();
-
-            LineUtility.Simplify(points.ToList(), Tolerance, points);
-
-            return points.Select(e =>
-                Vector3.Scale(e, Vector3.forward + Vector3.right) + Vector3.up * 100
-            ).ToArray();
+            _prevPoints = points;
         }
     }
 }
