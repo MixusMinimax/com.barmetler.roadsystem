@@ -147,7 +147,7 @@ namespace Barmetler.RoadSystem
         {
             var cancellations = new List<Action>();
             GetNewWayPointsPerfMarker.Begin();
-            yield return currentRoadSystem.FindPathAsync(
+            var findPathEn = currentRoadSystem.FindPathAsync(
                 action =>
                 {
                     cancellations.Add(action);
@@ -160,6 +160,7 @@ namespace Barmetler.RoadSystem
                 minDstToRoadToConnect: MinDistanceToRoadToConnect
             );
             GetNewWayPointsPerfMarker.End();
+            yield return findPathEn;
             foreach (var cancellation in cancellations) Cancel -= cancellation;
         }
     }
