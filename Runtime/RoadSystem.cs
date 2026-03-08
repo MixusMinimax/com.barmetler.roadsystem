@@ -525,7 +525,7 @@ namespace Barmetler.RoadSystem
             [SerializeField]
             private TwoDimensionalArray<float> weights = new TwoDimensionalArray<float>(0, 0);
 
-            private RcTwoDimensionalNativeArray<float> _weightsNativeArray;
+            private TwoDimensionalNativeArray<float> _weightsNativeArray;
 
             public bool NativeArrayIsCreated => _weightsNativeArray.IsCreated;
 
@@ -533,7 +533,7 @@ namespace Barmetler.RoadSystem
             {
                 if (_weightsNativeArray.IsCreated) _weightsNativeArray.Dispose();
                 _weightsNativeArray =
-                    new RcTwoDimensionalNativeArray<float>(weights.Width, weights.Height, Allocator.Persistent);
+                    new TwoDimensionalNativeArray<float>(weights.Width, weights.Height, Allocator.Persistent);
                 _weightsNativeArray.CopyFrom(weights.DirectArray);
             }
 

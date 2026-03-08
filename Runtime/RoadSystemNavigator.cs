@@ -21,7 +21,7 @@ namespace Barmetler.RoadSystem
         public float MinDistanceToRoadToConnect = 10;
 
         public PointList CurrentPoints { private set; get; } = new PointList();
-        private DebouncedUpdater<PointList> _currentPoints;
+        private AsyncUpdater<PointList> _currentPoints;
 
         public bool async;
 
@@ -29,8 +29,8 @@ namespace Barmetler.RoadSystem
         private void Update()
         {
             _currentPoints ??= async
-                ? new DebouncedUpdater<PointList>(this, GetNewWayPointsAsync, new PointList(), 1f / 144)
-                : new DebouncedUpdater<PointList>(this, GetNewWayPoints, new PointList(), 1f / 144);
+                ? new AsyncUpdater<PointList>(this, GetNewWayPointsAsync, new PointList(), 1f / 144)
+                : new AsyncUpdater<PointList>(this, GetNewWayPoints, new PointList(), 1f / 144);
             _currentPoints.Update();
             var points = _currentPoints.GetData();
             if (points != CurrentPoints)

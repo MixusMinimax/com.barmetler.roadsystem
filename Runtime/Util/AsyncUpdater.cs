@@ -13,7 +13,7 @@ namespace Barmetler.RoadSystem.Util
     /// </para>
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class DebouncedUpdater<T>
+    public class AsyncUpdater<T>
     {
         public delegate IEnumerator Updater(Consumer<T> consumer);
 
@@ -26,7 +26,7 @@ namespace Barmetler.RoadSystem.Util
         private readonly float _interval;
         private readonly Stopwatch _sw = new Stopwatch();
 
-        public DebouncedUpdater(MonoBehaviour mb, Updater updater, T initialData, float interval = 0)
+        public AsyncUpdater(MonoBehaviour mb, Updater updater, T initialData, float interval = 0)
         {
             _mb = mb;
             _updater = updater;
@@ -34,7 +34,7 @@ namespace Barmetler.RoadSystem.Util
             _data = initialData;
         }
 
-        public DebouncedUpdater(MonoBehaviour mb, Func<T> syncUpdater, T initialData, float interval = 0)
+        public AsyncUpdater(MonoBehaviour mb, Func<T> syncUpdater, T initialData, float interval = 0)
         {
             _mb = mb;
             _updater = UpdaterImpl;

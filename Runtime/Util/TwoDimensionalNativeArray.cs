@@ -14,7 +14,7 @@ namespace Barmetler.RoadSystem.Util
     /// <typeparam name="T">Type of the elements in the array.</typeparam>
     [DebuggerDisplay("Length = {Length}")]
     [DebuggerTypeProxy(typeof(TwoDimensionalNativeArrayDebugView<>))]
-    public struct RcTwoDimensionalNativeArray<T> where T : struct
+    public struct TwoDimensionalNativeArray<T> where T : struct
     {
         public readonly int Width;
         public readonly int Height;
@@ -26,7 +26,7 @@ namespace Barmetler.RoadSystem.Util
 
         private readonly Allocator _allocator;
 
-        public unsafe RcTwoDimensionalNativeArray(int width, int height, Allocator allocator)
+        public unsafe TwoDimensionalNativeArray(int width, int height, Allocator allocator)
         {
             if (width < 0 || height < 0)
                 throw new ArgumentException("Width and height must be >= 0");
@@ -95,9 +95,9 @@ namespace Barmetler.RoadSystem.Util
 
     internal sealed class TwoDimensionalNativeArrayDebugView<T> where T : struct
     {
-        private RcTwoDimensionalNativeArray<T> _array;
+        private TwoDimensionalNativeArray<T> _array;
 
-        public TwoDimensionalNativeArrayDebugView(RcTwoDimensionalNativeArray<T> array) => _array = array;
+        public TwoDimensionalNativeArrayDebugView(TwoDimensionalNativeArray<T> array) => _array = array;
 
         [UsedImplicitly] public T[] Items => _array.ToArray();
     }
@@ -116,11 +116,11 @@ namespace Barmetler.RoadSystem.Util
         public readonly int StartX;
         public readonly int StartY;
         public readonly int Length;
-        private RcTwoDimensionalNativeArray<T> _data;
-        private RcTwoDimensionalNativeArray<T> _horizontal;
-        private RcTwoDimensionalNativeArray<T> _vertical;
+        private TwoDimensionalNativeArray<T> _data;
+        private TwoDimensionalNativeArray<T> _horizontal;
+        private TwoDimensionalNativeArray<T> _vertical;
 
-        public ExtendedTwoDimensionalNativeArray(RcTwoDimensionalNativeArray<T> data, int startX, int startY, int width,
+        public ExtendedTwoDimensionalNativeArray(TwoDimensionalNativeArray<T> data, int startX, int startY, int width,
             int height, Allocator allocator)
         {
             if (startX + data.Width > width || startY + data.Height > height)
@@ -133,9 +133,9 @@ namespace Barmetler.RoadSystem.Util
             _data = data;
             data.Inc();
             // top and bottom rows in full width
-            _horizontal = new RcTwoDimensionalNativeArray<T>(width, height - _data.Height, allocator);
+            _horizontal = new TwoDimensionalNativeArray<T>(width, height - _data.Height, allocator);
             // left and right columns without top and bottom rows
-            _vertical = new RcTwoDimensionalNativeArray<T>(width - _data.Width, _data.Height, allocator);
+            _vertical = new TwoDimensionalNativeArray<T>(width - _data.Width, _data.Height, allocator);
         }
 
         public bool IsCreated => _data.IsCreated;
