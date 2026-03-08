@@ -259,16 +259,14 @@ namespace Barmetler
             });
             yield return new WaitUntil(() => handle.IsCompleted);
             handle.Complete();
-            var arr = path.AsArray().ToArray();
             if (state == 0)
             {
                 state = 1;
+                resultConsumer(path.AsArray().ToArray());
                 path.Dispose();
                 nodes.Dispose();
                 weights.Dispose();
             }
-
-            resultConsumer(arr);
         }
 
         [SuppressMessage("ReSharper", "SwapViaDeconstruction")] // tuples don't work with Burst !!!
