@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Profiling;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Barmetler.RoadSystem.Util
 {
@@ -14,8 +16,13 @@ namespace Barmetler.RoadSystem.Util
         [SerializeField]
         private RoadSystemNavigator navigator;
 
+        [FormerlySerializedAs("Tolerance")]
         [SerializeField]
-        private float LineWidth = 2;
+        private float tolerance = 0.1f;
+
+        [FormerlySerializedAs("LineWidth")]
+        [SerializeField]
+        private float lineWidth = 2;
 
         [SerializeField, HideInInspector]
         private LineRenderer lineRenderer;
@@ -32,17 +39,29 @@ namespace Barmetler.RoadSystem.Util
             OnValidate();
         }
 
+        private static ProfilerMarker _lineUpdatePerfMarker = new ProfilerMarker("NavigationLineUpdater simplify");
+
         private void LateUpdate()
         {
             if (!navigator) return;
             var points = navigator.CurrentPoints;
             if (points == _prevPoints) return;
 
-            lineRenderer.positionCount = points.Count;
-            lineRenderer.SetPositions(points
+            Vector3? prev = null;
+            _lineUpdatePerfMarker.Begin();
+            var positions = points
                 .Select(e => Vector3.Scale(e.position, Vector3.forward + Vector3.right) + Vector3.up * 100)
-                .ToArray());
-            lineRenderer.widthMultiplier = LineWidth;
+                .Where(e =>
+                {
+                    var p = prev;
+                    prev = e;
+                    return p == null || !((e - p.Value).sqrMagnitude < tolerance * tolerance);
+                })
+                .ToArray();
+            _lineUpdatePerfMarker.End();
+            lineRenderer.positionCount = positions.Length;
+            lineRenderer.SetPositions(positions);
+            lineRenderer.widthMultiplier = lineWidth;
 
             _prevPoints = points;
         }
