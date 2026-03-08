@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -41,26 +39,33 @@ namespace Barmetler.RoadSystem.Util
 
         private static ProfilerMarker _lineUpdatePerfMarker = new ProfilerMarker("NavigationLineUpdater simplify");
 
+        private Vector3[] _positionBuffer = new Vector3[256];
+
         private void LateUpdate()
         {
             if (!navigator) return;
             var points = navigator.CurrentPoints;
             if (points == _prevPoints) return;
 
-            Vector3? prev = null;
             _lineUpdatePerfMarker.Begin();
-            var positions = points
-                .Select(e => Vector3.Scale(e.position, Vector3.forward + Vector3.right) + Vector3.up * 100)
-                .Where(e =>
-                {
-                    var p = prev;
-                    prev = e;
-                    return p == null || !((e - p.Value).sqrMagnitude < tolerance * tolerance);
-                })
-                .ToArray();
+            if (_positionBuffer.Length < points.Count)
+                _positionBuffer = new Vector3[(int)(points.Count * 1.1) + 16];
+
+            // Linq results in allocations, so a normal for loop is better.
+            // Also, we are re-using the result buffer.
+            Vector3? prev = null;
+            var count = 0;
+            for (var i = 0; i < points.Count; ++i)
+            {
+                var pos = Vector3.Scale(points[i].position, Vector3.forward + Vector3.right) + Vector3.up * 100;
+                if (prev == null || !((pos - prev.Value).sqrMagnitude < tolerance * tolerance))
+                    _positionBuffer[count++] = pos;
+                prev = pos;
+            }
+
             _lineUpdatePerfMarker.End();
-            lineRenderer.positionCount = positions.Length;
-            lineRenderer.SetPositions(positions);
+            lineRenderer.positionCount = count;
+            lineRenderer.SetPositions(_positionBuffer);
             lineRenderer.widthMultiplier = lineWidth;
 
             _prevPoints = points;
