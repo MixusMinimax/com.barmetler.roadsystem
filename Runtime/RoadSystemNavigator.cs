@@ -71,10 +71,40 @@ namespace Barmetler.RoadSystem
 
         private bool _updateRunning;
 
+        /// <summary>
+        /// Enable or disable asynchronous updating. If set to false, this function will yield until the current
+        /// update has finished, if one is active.
+        /// </summary>
+        /// <param name="value"></param>
         public IEnumerator SetUpdateEnabledAsync(bool value)
         {
             updateEnabled = value;
-            if (!value) yield return new WaitWhile(() => _updateRunning);
+            if (!value)
+                while (_updateRunning)
+                    yield return null;
+        }
+
+        /// <summary>
+        /// <para>
+        /// Wait for the next not-yet-dispatched update to complete. Only use if async is enabled.
+        /// </para>
+        /// <para>
+        /// Example use case: You updated the goal, and now want to wait for the path to finish recalculating.
+        /// This would be useful if you want to make the line invisible while that happens, and make it visible again
+        /// once the calculation completes.
+        /// </para>
+        /// </summary>
+        public IEnumerator AwaitNextUpdateAsync()
+        {
+            // wait for current update if it is running
+            while (async && updateEnabled && _updateRunning)
+                yield return null;
+            // wait until next update starts
+            while (async && updateEnabled && !_updateRunning)
+                yield return null;
+            // wait for that update to finish
+            while (async && updateEnabled && _updateRunning)
+                yield return null;
         }
 
         private void Update()
