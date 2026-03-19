@@ -67,7 +67,7 @@ namespace Barmetler.RoadSystem
         [Tooltip("Use this to stop the navigator from updating if async is enabled.\n" +
                  "It serves as a soft shutdown, as it allows the current update to finish without triggering more.\n" +
                  "After the last update is finished, you can disable the entire navigator.")]
-        private bool updateEnabled;
+        private bool updateEnabled = true;
 
         private bool _updateRunning;
 
