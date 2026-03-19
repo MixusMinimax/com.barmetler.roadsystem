@@ -218,6 +218,24 @@ namespace Barmetler.RoadSystem
             return GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
         }
 
+        /// <summary>
+        /// Schedules a job on another thread to find a path from startPosWorld to goalPosWorld.
+        /// </summary>
+        /// <param name="onCancel">
+        /// will be called by this function to supply you with a cancellation callback.
+        /// If you do not poll this coroutine to completion, you must call the action passed to onCancel.
+        /// That action may block until the job has completed.
+        /// </param>
+        /// <param name="stepSize"></param>
+        /// <param name="resultConsumer">
+        /// Callback to accept the result. Will be called on the last poll of the coroutine.
+        /// </param>
+        /// <param name="startPosWorld">World position of the start point.</param>
+        /// <param name="goalPosWorld">World position of the goal point.</param>
+        /// <param name="edges">May be null. If not null, will be populated with the edges in the path.</param>
+        /// <param name="yScale"></param>
+        /// <param name="minDstToRoadToConnect"></param>
+        /// <returns></returns>
         public IEnumerator FindPathAsync(
             Consumer<Action> onCancel,
             Consumer<PointList> resultConsumer,
@@ -861,8 +879,12 @@ namespace Barmetler.RoadSystem
             /// <summary>
             /// Find the shortest path from one point to another in the road system. This burst version is about 3x as
             /// fast as the non-burst version.
+            /// <para>This variant schedules the job on another thread.</para>
             /// </summary>
-            /// <param name="onCancel"></param>
+            /// <param name="onCancel">
+            /// Callback to accept a cancellation callback.
+            /// If not polled to completion, this supplied action must be called.
+            /// </param>
             /// <param name="resultConsumer">Callback to accept the result.</param>
             /// <param name="startPosWorld">World position of the start point.</param>
             /// <param name="startRoad">Road the start point is on, or null if it is on an intersection.</param>

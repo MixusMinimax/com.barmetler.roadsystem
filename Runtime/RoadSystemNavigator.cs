@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Barmetler.RoadSystem.Util;
 using Unity.Profiling;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Barmetler.RoadSystem
 {
@@ -13,25 +14,75 @@ namespace Barmetler.RoadSystem
     {
         public RoadSystem currentRoadSystem;
 
-        public Vector3 Goal = Vector3.zero;
+        [FormerlySerializedAs("Goal")]
+        public Vector3 goal = Vector3.zero;
 
-        public float GraphStepSize = 1;
-        public float MinDistanceYScale = 1;
-        public float MinDistanceToRoadToConnect = 10;
+        [FormerlySerializedAs("GraphStepSize")]
+        public float graphStepSize = 1;
+
+        [FormerlySerializedAs("MinDistanceYScale")]
+        public float minDistanceYScale = 1;
+
+        [FormerlySerializedAs("MinDistanceToRoadToConnect")]
+        public float minDistanceToRoadToConnect = 10;
+
+        [Obsolete("Use goal instead")]
+        public Vector3 Goal
+        {
+            get => goal;
+            set => goal = value;
+        }
+
+        [Obsolete("Use graphStepSize instead")]
+        public float GraphStepSize
+        {
+            get => graphStepSize;
+            set => graphStepSize = value;
+        }
+
+        [Obsolete("Use minDistanceYScale instead")]
+        public float MinDistanceYScale
+        {
+            get => minDistanceYScale;
+            set => minDistanceYScale = value;
+        }
+
+        [Obsolete("Use minDistanceToRoadToConnect instead")]
+        public float MinDistanceToRoadToConnect
+        {
+            get => minDistanceToRoadToConnect;
+            set => minDistanceToRoadToConnect = value;
+        }
 
         public PointList CurrentPoints { private set; get; } = new PointList();
         private AsyncUpdater<PointList> _currentPoints;
 
+        [SerializeField]
         [Tooltip("If true, runs the path finding in another thread.\n" +
-                 "The path will become available in the next frame at the earliest.")]
-        public bool async = true;
+                 "The path will become available in the next frame at the earliest.\n" +
+                 "This can't be changed at run-time.")]
+        private bool async = true;
 
+        [SerializeField]
+        [Tooltip("Use this to stop the navigator from updating if async is enabled.\n" +
+                 "It serves as a soft shutdown, as it allows the current update to finish without triggering more.\n" +
+                 "After the last update is finished, you can disable the entire navigator.")]
+        private bool updateEnabled;
+
+        private bool _updateRunning;
+
+        public IEnumerator SetUpdateEnabledAsync(bool value)
+        {
+            updateEnabled = value;
+            if (!value) yield return new WaitWhile(() => _updateRunning);
+        }
 
         private void Update()
         {
             _currentPoints ??= async
                 ? new AsyncUpdater<PointList>(this, GetNewWayPointsAsync, new PointList(), 1f / 144)
                 : new AsyncUpdater<PointList>(this, GetNewWayPoints, new PointList(), 1f / 144);
+            if (!updateEnabled) return;
             _currentPoints.Update();
             var points = _currentPoints.GetData();
             if (points != CurrentPoints)
@@ -53,8 +104,8 @@ namespace Barmetler.RoadSystem
                 return float.PositiveInfinity;
             }
 
-            return currentRoadSystem.GetMinDistance(transform.position, Mathf.Max(0.1f, GraphStepSize),
-                MinDistanceYScale, out road, out closestPoint, out distanceAlongRoad);
+            return currentRoadSystem.GetMinDistance(transform.position, Mathf.Max(0.1f, graphStepSize),
+                minDistanceYScale, out road, out closestPoint, out distanceAlongRoad);
         }
 
         public float GetMinDistance(
@@ -70,7 +121,7 @@ namespace Barmetler.RoadSystem
             }
 
             return currentRoadSystem.GetMinDistance(
-                transform.position, MinDistanceYScale, out intersection, out anchor, out closestPoint,
+                transform.position, minDistanceYScale, out intersection, out anchor, out closestPoint,
                 out distanceAlongRoad);
         }
 
@@ -84,7 +135,7 @@ namespace Barmetler.RoadSystem
                 var sqrDst = (CurrentPoints[count].position - pos).sqrMagnitude;
                 if (
                     sqrDst < (CurrentPoints[count + 1].position - pos).sqrMagnitude &&
-                    sqrDst > GraphStepSize / 2 * GraphStepSize / 2
+                    sqrDst > graphStepSize / 2 * graphStepSize / 2
                 ) break;
             }
 
@@ -96,7 +147,7 @@ namespace Barmetler.RoadSystem
 
         private void RemovePointsAhead()
         {
-            var pos = Goal;
+            var pos = goal;
             var count = 0;
             for (; count < CurrentPoints.Count - 1; ++count)
             {
@@ -104,7 +155,7 @@ namespace Barmetler.RoadSystem
                 var sqrDst = (CurrentPoints[CurrentPoints.Count - 1 - count].position - pos).sqrMagnitude;
                 if (
                     sqrDst < (CurrentPoints[CurrentPoints.Count - 1 - count - 1].position - pos).sqrMagnitude &&
-                    sqrDst > GraphStepSize / 2 * GraphStepSize / 2
+                    sqrDst > graphStepSize / 2 * graphStepSize / 2
                 ) break;
             }
 
@@ -126,10 +177,10 @@ namespace Barmetler.RoadSystem
         {
             using var marker = GetNewWayPointsPerfMarker.Auto();
             return currentRoadSystem.FindPath(
-                transform.position, Goal,
-                yScale: MinDistanceYScale,
-                stepSize: Mathf.Max(0.1f, GraphStepSize),
-                minDstToRoadToConnect: MinDistanceToRoadToConnect
+                transform.position, goal,
+                yScale: minDistanceYScale,
+                stepSize: Mathf.Max(0.1f, graphStepSize),
+                minDstToRoadToConnect: minDistanceToRoadToConnect
             );
         }
 
@@ -140,29 +191,29 @@ namespace Barmetler.RoadSystem
 
         private void OnDisable()
         {
+            StopAllCoroutines();
             using var marker = CancelPerfMarker.Auto();
-            Cancel?.Invoke();
+            Cancel?.Invoke(); // this may block.
+            Cancel = null;
+            _updateRunning = false;
         }
 
         private IEnumerator GetNewWayPointsAsync(Consumer<PointList> resultConsumer)
         {
-            var cancellations = new List<Action>();
+            _updateRunning = true;
             GetNewWayPointsPerfMarker.Begin();
             var findPathEn = currentRoadSystem.FindPathAsync(
-                action =>
-                {
-                    cancellations.Add(action);
-                    Cancel += action;
-                },
+                action => Cancel += action,
                 resultConsumer,
-                transform.position, Goal,
-                yScale: MinDistanceYScale,
-                stepSize: Mathf.Max(0.1f, GraphStepSize),
-                minDstToRoadToConnect: MinDistanceToRoadToConnect
+                transform.position, goal,
+                yScale: minDistanceYScale,
+                stepSize: Mathf.Max(0.1f, graphStepSize),
+                minDstToRoadToConnect: minDistanceToRoadToConnect
             );
             GetNewWayPointsPerfMarker.End();
             yield return findPathEn;
-            foreach (var cancellation in cancellations) Cancel -= cancellation;
+            Cancel = null;
+            _updateRunning = false;
         }
     }
 }

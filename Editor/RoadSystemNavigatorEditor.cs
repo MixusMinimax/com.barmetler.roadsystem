@@ -54,7 +54,7 @@ namespace Barmetler.RoadSystem
                 lastPos = position;
             }
 
-            position = _navigator.Goal;
+            position = _navigator.goal;
             Handles.DrawLine(lastPos, position);
 
             {
