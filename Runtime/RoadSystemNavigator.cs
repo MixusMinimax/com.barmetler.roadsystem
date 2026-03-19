@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Barmetler.RoadSystem.Util;
-using JetBrains.Annotations;
 using Unity.Profiling;
 using UnityEngine;
 
@@ -23,7 +22,9 @@ namespace Barmetler.RoadSystem
         public PointList CurrentPoints { private set; get; } = new PointList();
         private AsyncUpdater<PointList> _currentPoints;
 
-        public bool async;
+        [Tooltip("If true, runs the path finding in another thread.\n" +
+                 "The path will become available in the next frame at the earliest.")]
+        public bool async = true;
 
 
         private void Update()
