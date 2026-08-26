@@ -60,12 +60,12 @@ namespace Barmetler.RoadSystem
 
         private enum ToolState
         {
-            SELECTING,
-            LINKING,
-            UNLINKING
+            Selecting,
+            Linking,
+            Unlinking
         }
 
-        private ToolState _toolState = ToolState.SELECTING;
+        private ToolState _toolState = ToolState.Selecting;
 
         public interface IPoint : IEquatable<IPoint>
         {
@@ -144,11 +144,11 @@ namespace Barmetler.RoadSystem
             if (ActivePoint != null && !ActivePoint.gameObject) ActivePoint = null;
 
             if (ActivePoint != null && !ActivePoint.IsConnected && e.shift)
-                _toolState = ToolState.LINKING;
+                _toolState = ToolState.Linking;
             else if (e.control && !e.shift)
-                _toolState = ToolState.UNLINKING;
+                _toolState = ToolState.Unlinking;
             else
-                _toolState = ToolState.SELECTING;
+                _toolState = ToolState.Selecting;
 
             var buttons = new List<IPoint>();
 
@@ -210,22 +210,22 @@ namespace Barmetler.RoadSystem
                         break;
                 }
 
-                if (_toolState == ToolState.UNLINKING)
+                if (_toolState == ToolState.Unlinking)
                     Handles.color = Color.red * .5f + Color.yellow * .5f;
 
                 if (Handles.Button(position, point.rotation, size, size * 1.5f, Handles.CubeHandleCap))
                 {
                     switch (_toolState)
                     {
-                        case ToolState.SELECTING:
+                        case ToolState.Selecting:
                             ActivePoint = point;
                             break;
 
-                        case ToolState.LINKING:
+                        case ToolState.Linking:
                             Link(ActivePoint, point, e.control);
                             break;
 
-                        case ToolState.UNLINKING:
+                        case ToolState.Unlinking:
                             Unlink(point);
                             break;
                     }
@@ -234,8 +234,8 @@ namespace Barmetler.RoadSystem
 
             switch (_toolState)
             {
-                case ToolState.SELECTING:
-                case ToolState.LINKING:
+                case ToolState.Selecting:
+                case ToolState.Linking:
                     if (ActivePoint != null)
                     {
                         var position = ActivePoint.position - ActivePoint.rotation * (Vector3.forward * size / 2);
@@ -257,12 +257,12 @@ namespace Barmetler.RoadSystem
             {
                 switch (_toolState)
                 {
-                    case ToolState.SELECTING:
+                    case ToolState.Selecting:
                         if (point.Equals(ActivePoint))
                             return false;
                         break;
 
-                    case ToolState.LINKING:
+                    case ToolState.Linking:
                         if (point.Equals(ActivePoint))
                             return false;
                         if (activeIsRoad)
@@ -281,7 +281,7 @@ namespace Barmetler.RoadSystem
 
                         break;
 
-                    case ToolState.UNLINKING:
+                    case ToolState.Unlinking:
                         if (point is RoadPoint)
                             return false;
                         if (!(point as AnchorPoint)?.anchor.GetConnectedRoad())
@@ -300,23 +300,21 @@ namespace Barmetler.RoadSystem
 
         private void PrintToolTip()
         {
-            string text = null;
-            switch (_toolState)
+            var text = _toolState switch
             {
-                case ToolState.LINKING:
-                    text = $"Click to link ({(Event.current.control ? "extend road" : "move endpoint")})";
-                    break;
-
-                case ToolState.UNLINKING:
-                    text = "Click to unlink";
-                    break;
-            }
+                ToolState.Linking => $"Click to link ({(Event.current.control ? "extend road" : "move endpoint")})",
+                ToolState.Unlinking => "Click to unlink",
+                _ => null
+            };
 
             if (text != null)
             {
-                var ray = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
-                var pos = ray.GetPoint(10) + Camera.current.transform.right * 0.2f;
-                Handles.Label(pos, text);
+                var content = new GUIContent(text);
+                var style = GUI.skin.label;
+                var size = style.CalcSize(content);
+                Handles.BeginGUI();
+                GUI.Label(new Rect(Event.current.mousePosition + new Vector2(10, -size.y), size), content, style);
+                Handles.EndGUI();
                 HandleUtility.Repaint();
             }
         }
