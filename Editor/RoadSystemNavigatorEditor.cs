@@ -44,18 +44,16 @@ namespace Barmetler.RoadSystem
 
             var points = _navigator.CurrentPoints;
 
-            Vector3 position;
-            var lastPos = _navigator.transform.position;
             Handles.color = Color.yellow;
-            foreach (var point in points)
-            {
-                position = point.position;
-                Handles.DrawLine(lastPos, position);
-                lastPos = position;
-            }
 
-            position = _navigator.goal;
-            Handles.DrawLine(lastPos, position);
+            var posCount = 1 + points.Count + 1;
+            var positions = new Vector3[posCount];
+            positions[0] = _navigator.transform.position;
+            for (var i = 0; i < points.Count; ++i)
+                positions[i + 1] = points[i].position;
+            positions[posCount - 1] = _navigator.goal;
+
+            Handles.DrawPolyLine(positions);
 
             {
                 var d1 = _navigator.GetMinDistance(out _, out var p1, out _);

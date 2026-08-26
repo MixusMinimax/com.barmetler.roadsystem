@@ -297,7 +297,7 @@ namespace Barmetler.RoadSystem
                 return pathPoints;
             }
 
-            void ReversePoints(List<Bezier.OrientedPoint> points, int index, int count)
+            void ReversePoints(PointList points, int index, int count)
             {
                 for (var i = index; i < index + count; ++i)
                 {

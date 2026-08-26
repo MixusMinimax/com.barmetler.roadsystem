@@ -205,6 +205,7 @@ namespace Barmetler.RoadSystem
 
         private PointList GetNewWayPoints()
         {
+            if (!currentRoadSystem) return new PointList();
             using var marker = GetNewWayPointsPerfMarker.Auto();
             return currentRoadSystem.FindPath(
                 transform.position, goal,
@@ -230,6 +231,12 @@ namespace Barmetler.RoadSystem
 
         private IEnumerator GetNewWayPointsAsync(Consumer<PointList> resultConsumer)
         {
+            if (_updateRunning)
+            {
+                Debug.LogError("GetNewWayPointsAsync called while already running");
+                goto end;
+            }
+
             _updateRunning = true;
             GetNewWayPointsPerfMarker.Begin();
             var findPathEn = currentRoadSystem.FindPathAsync(
@@ -244,6 +251,7 @@ namespace Barmetler.RoadSystem
             yield return findPathEn;
             Cancel = null;
             _updateRunning = false;
+            end: ;
         }
     }
 }
