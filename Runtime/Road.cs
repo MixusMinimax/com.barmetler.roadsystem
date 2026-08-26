@@ -132,8 +132,18 @@ namespace Barmetler.RoadSystem
 
         public void RefreshEndPoints(bool updatemesh = true)
         {
-            if (start != null) start.SetRoad(this, true);
-            if (end != null) end.SetRoad(this, false);
+            if (start != null)
+            {
+                var connectedRoad = start.GetConnectedRoad();
+                if (connectedRoad && connectedRoad != this) start = null;
+                else if (!connectedRoad) start.SetRoad(this, true);
+            }
+            if (end != null)
+            {
+                var connectedRoad = end.GetConnectedRoad();
+                if (connectedRoad && connectedRoad != this) end = null;
+                else if (!connectedRoad) end.SetRoad(this, false);
+            }
 
             // Convert to using normals:
             if (angles.Count == NumSegments + 1)

@@ -33,7 +33,7 @@ namespace Barmetler.RoadSystem
         {
             switch (ActivePoint)
             {
-                case AnchorPoint { anchor: { } anchor } pt when anchor.GetConnectedRoad() is { } road:
+                case AnchorPoint { anchor: { } anchor } when anchor.GetConnectedRoad() is { } road:
                 {
                     var context = CreateInstance<RoadEditor.RoadSelectionContext>();
                     context.Road = road;
@@ -152,6 +152,7 @@ namespace Barmetler.RoadSystem
 
             var buttons = new List<IPoint>();
 
+            Handles.color = Color.black;
 #if UNITY_2023_1_OR_NEWER
             foreach (var intersection in FindObjectsByType<Intersection>(FindObjectsSortMode.None))
 #else
@@ -161,6 +162,7 @@ namespace Barmetler.RoadSystem
                 foreach (var anchor in intersection.AnchorPoints)
                 {
                     buttons.Add(new AnchorPoint { anchor = anchor });
+                    Handles.DrawLine(intersection.transform.position, anchor.transform.position);
                 }
             }
 
@@ -174,6 +176,12 @@ namespace Barmetler.RoadSystem
                     buttons.Add(new RoadPoint { road = road, isStart = true });
                 if (!road.end)
                     buttons.Add(new RoadPoint { road = road, isStart = false });
+                foreach (var segment in Enumerable.Range(0, road.NumSegments))
+                {
+                    var points = road.GetPointsInSegment(segment).Select(point => road.transform.TransformPoint(point))
+                        .ToArray();
+                    Handles.DrawBezier(points[0], points[3], points[1], points[2], Color.black, null, 2f);
+                }
             }
 
             var activeIsRoad = ActivePoint is RoadPoint;
@@ -317,16 +325,17 @@ namespace Barmetler.RoadSystem
         {
             if (a is RoadPoint && b is AnchorPoint)
             {
-                Link(b, a, extend);
-                return;
+                (a, b) = (b, a);
             }
 
             if (a is AnchorPoint anchor && b is RoadPoint road)
             {
+                Undo.IncrementCurrentGroup();
                 Undo.SetCurrentGroupName("Link Road");
                 var group = Undo.GetCurrentGroup();
                 Undo.RecordObject(road.road, "Link Road - road");
-                Undo.RecordObject(road.road.GetComponent<MeshFilter>(), "Link Road - mesh");
+                if (road.road.GetComponent<MeshFilter>() is { } mf && mf)
+                    Undo.RecordObject(mf, "Link Road - mesh");
                 Undo.RecordObject(anchor.anchor, "Link Road - anchor");
                 if (extend)
                 {
@@ -355,11 +364,12 @@ namespace Barmetler.RoadSystem
             {
                 if (point is AnchorPoint anchorPoint && anchorPoint.anchor.GetConnectedRoad())
                 {
+                    Undo.IncrementCurrentGroup();
                     Undo.SetCurrentGroupName("UnLink Road");
                     var group = Undo.GetCurrentGroup();
                     Undo.RecordObject(anchorPoint.anchor.GetConnectedRoad(), "UnLink Road - road");
-                    Undo.RecordObject(anchorPoint.anchor.GetConnectedRoad().GetComponent<MeshFilter>(),
-                        "UnLink Road - mesh");
+                    if (anchorPoint.anchor.GetConnectedRoad().GetComponent<MeshFilter>() is { } mf && mf)
+                        Undo.RecordObject(mf, "UnLink Road - mesh");
                     Undo.RecordObject(anchorPoint.anchor, "UnLink Road - anchor");
                     anchorPoint.anchor.Disconnect();
                     Undo.CollapseUndoOperations(group);
