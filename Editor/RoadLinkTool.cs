@@ -242,9 +242,9 @@ namespace Barmetler.RoadSystem
                         if (ActivePoint is AnchorPoint anchor2 && anchor2.anchor.GetConnectedRoad())
                             position = ActivePoint.position;
                         Handles.color = Color.black;
-                        Handles.CubeHandleCap(0, position, ActivePoint.rotation, -1.1f * size, EventType.Repaint);
+                        Handles.CubeHandleCap(0, position, ActivePoint.rotation, -1.1f * size, Event.current.type);
                         Handles.color = Color.red;
-                        Handles.CubeHandleCap(0, position, ActivePoint.rotation, size, EventType.Repaint);
+                        Handles.CubeHandleCap(0, position, ActivePoint.rotation, size, Event.current.type);
                     }
 
                     break;

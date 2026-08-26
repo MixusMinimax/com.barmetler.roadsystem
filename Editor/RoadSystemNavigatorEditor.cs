@@ -59,14 +59,14 @@ namespace Barmetler.RoadSystem
                 var d1 = _navigator.GetMinDistance(out _, out var p1, out _);
                 var d2 = _navigator.GetMinDistance(out _, out _, out var p2, out _);
                 var p = d1 < d2 ? p1 : p2;
-                Handles.SphereHandleCap(0, p, Quaternion.identity, 0.5f, EventType.Repaint);
+                Handles.SphereHandleCap(0, p, Quaternion.identity, 0.5f, Event.current.type);
             }
 
             if (_settings.DrawNavigatorDebugPoints)
             {
                 foreach (var point in points)
                 {
-                    Handles.SphereHandleCap(0, point.position, Quaternion.identity, 0.2f, EventType.Repaint);
+                    Handles.SphereHandleCap(0, point.position, Quaternion.identity, 0.2f, Event.current.type);
                 }
             }
         }
