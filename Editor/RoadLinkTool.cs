@@ -343,6 +343,8 @@ namespace Barmetler.RoadSystem
                 anchor.anchor.SetRoad(road.road, road.isStart);
                 road.road.RefreshEndPoints();
                 ActivePoint = anchor;
+                EditorUtility.SetDirty(road.road);
+                EditorUtility.SetDirty(anchor.anchor);
                 Undo.CollapseUndoOperations(group);
             }
             else
@@ -369,7 +371,10 @@ namespace Barmetler.RoadSystem
                     if (anchorPoint.anchor.GetConnectedRoad().GetComponent<MeshFilter>() is { } mf && mf)
                         Undo.RecordObject(mf, "UnLink Road - mesh");
                     Undo.RecordObject(anchorPoint.anchor, "UnLink Road - anchor");
+                    var road = anchorPoint.anchor.GetConnectedRoad();
                     anchorPoint.anchor.Disconnect();
+                    EditorUtility.SetDirty(road);
+                    EditorUtility.SetDirty(anchorPoint.anchor);
                     Undo.CollapseUndoOperations(group);
                 }
                 else
