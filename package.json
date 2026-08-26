@@ -10,7 +10,7 @@
   "description": "Create RoadSystems using Bezier Curves that support Path Finding",
   "hideInEditor": false,
   "unity": "2022.3",
-  "unityRelease": "2f3",
+  "unityRelease": "62f3",
   "keywords": [
     "road",
     "roads",
