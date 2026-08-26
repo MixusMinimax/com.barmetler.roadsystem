@@ -76,9 +76,9 @@ namespace Barmetler.RoadSystem
 
             UpdateToolVisibility();
 
-            DrawInfo(controlID);
-            GUIControlPoints(controlID);
-            GUIAddOrRemovePoints(controlID);
+            DrawInfo();
+            GUIControlPoints();
+            GUIAddOrRemovePoints();
 
             GUIDrawWindow();
         }
@@ -108,7 +108,7 @@ namespace Barmetler.RoadSystem
             _lastTool = Tools.current;
         }
 
-        private void DrawInfo(int controlID)
+        private void DrawInfo()
         {
             if (_settings.DrawBoundingBoxes)
             {
@@ -162,10 +162,14 @@ namespace Barmetler.RoadSystem
 
         private readonly Dictionary<int, Quaternion> _initialRotations = new Dictionary<int, Quaternion>();
 
-        private void GUIControlPoints(int controlID)
+        private Quaternion _rotationHandleOrientation;
+        private Quaternion _rotationHandleOffset;
+
+        private void GUIControlPoints()
         {
             var currentEvent = Event.current;
             var hasModifiers = currentEvent.alt || currentEvent.shift || currentEvent.control;
+            hasModifiers &= GUIUtility.hotControl == 0;
 
             if (currentEvent.type == EventType.KeyDown && currentEvent.keyCode == KeyCode.Escape)
                 _selectedAnchorPoint = -1;
@@ -237,7 +241,6 @@ namespace Barmetler.RoadSystem
                 rot = RoadUtilities.GetRotationAtWorldSpace(_road, _selectedAnchorPoint, out forward, out _);
             }
 
-            if (currentEvent.control) return;
             switch (Tools.current)
             {
                 case Tool.Move:
@@ -258,25 +261,19 @@ namespace Barmetler.RoadSystem
                     if (_selectedAnchorPoint != -1)
                     {
                         var hc = GUIUtility.hotControl;
-                        var newRot =
-                            Handles.RotationHandle(
-                                Tools.pivotRotation == PivotRotation.Local ? rot : Quaternion.identity, pos);
-                        if (hc != GUIUtility.hotControl)
+                        if (hc == 0)
                         {
-                            _initialRotations[GUIUtility.hotControl] = rot;
+                            _rotationHandleOrientation = Quaternion.identity;
+                            _rotationHandleOffset = rot;
                         }
 
-                        if ((Tools.pivotRotation == PivotRotation.Global && newRot != Quaternion.identity) ||
-                            (Tools.pivotRotation == PivotRotation.Local && newRot != rot))
-                        {
-                            if (Tools.pivotRotation == PivotRotation.Global)
-                            {
-                                if (GUIUtility.hotControl == 1317) // 1317
-                                    newRot *= rot;
-                                else
-                                    newRot *= _initialRotations[GUIUtility.hotControl];
-                            }
+                        var newRot = Handles.RotationHandle(
+                            Tools.pivotRotation == PivotRotation.Local ? rot : _rotationHandleOrientation, pos);
+                        _rotationHandleOrientation = newRot;
 
+                        if (hc != 0)
+                        {
+                            newRot *= _rotationHandleOffset;
                             Undo.RecordObject(_road, "Rotate Control Point");
                             RoadUtilities.SetRotationAtWorldSpace(_road, _selectedAnchorPoint, newRot);
                         }
@@ -357,10 +354,10 @@ namespace Barmetler.RoadSystem
                         var c = ((p.index + 1) / 3 * 3) == _selectedAnchorPoint
                             ? (0.7f * Color.cyan + 0.3f * Color.black)
                             : Color.red;
-                        Handles.color = currentEvent.alt
+                        Handles.color = hasModifiers
                             ? Color.grey
                             : (p.index % 3 == 0 ? c : (c + Color.white * 0.4f));
-                        if (currentEvent.alt || currentEvent.shift || currentEvent.control)
+                        if (hasModifiers)
                         {
                             Handles.SphereHandleCap(0, p.pos, Quaternion.identity,
                                 0.2f * HandleUtility.GetHandleSize(p.pos), Event.current.type);
@@ -395,7 +392,7 @@ namespace Barmetler.RoadSystem
             return _wasDown[keyCode] = false;
         }
 
-        private void GUIAddOrRemovePoints(int controlID)
+        private void GUIAddOrRemovePoints()
         {
             var e = Event.current;
 
@@ -441,7 +438,7 @@ namespace Barmetler.RoadSystem
             // =====[ Segment Insertion ]=====
             // ===============================
 
-            if (e.shift && !e.alt && !e.control)
+            if (GUIUtility.hotControl == 0 && e.shift && !e.alt && !e.control)
             {
                 var minDist = float.PositiveInfinity;
                 var segmentIndex = -1;
@@ -531,7 +528,7 @@ namespace Barmetler.RoadSystem
              *   3. Otherwise, the point at the same depth as the end point is used.
              */
 
-            if (e.control && !e.alt)
+            if (GUIUtility.hotControl == 0 && e.control && !e.alt)
             {
                 var minDist = float.PositiveInfinity;
                 var selectedEndpoint = (isValid: false, isStart: false, position: Vector3.zero, index: (int)0);
@@ -596,7 +593,7 @@ namespace Barmetler.RoadSystem
                         });
                         Handles.color = c;
                     }
-                    else if (!e.shift && _settings.UseRayCast && Physics.Raycast(ray, out var rayHit, 500))
+                    else if (!e.shift && _settings.UseRayCast && HandleUtility.RaySnap(ray) is RaycastHit rayHit)
                     {
                         position = rayHit.point;
                         if (_settings.CopyHitNormal)
@@ -605,7 +602,7 @@ namespace Barmetler.RoadSystem
                     else
                     {
                         var direction = ray.direction / Vector3.Dot(Camera.current.transform.forward, ray.direction);
-                        position = Camera.current.transform.position + depth * direction;
+                        position = ray.origin + depth * direction;
                     }
 
                     Handles.DrawLine(selectedEndpoint.position, position);
