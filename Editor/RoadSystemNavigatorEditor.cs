@@ -26,14 +26,7 @@ namespace Barmetler.RoadSystem
         {
             if (!_settings.AutoCalculateNavigator) return;
 
-            try
-            {
-                _navigator.CalculateWayPointsSync();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError(e);
-            }
+            _navigator.CalculateWayPointsSync();
 
             SceneView.RepaintAll();
         }

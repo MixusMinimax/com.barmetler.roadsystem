@@ -591,9 +591,12 @@ namespace Barmetler.RoadSystem
             return true;
         }
 
+        private static ProfilerMarker _getMinDistanceMarker = new ProfilerMarker("Road.GetMinDistance");
+
         public float GetMinDistance(Vector3 worldPosition, float stepSize, float yScale, out Vector3 closestPoint,
             out float distanceAlongRoad)
         {
+            using var markerScope = _getMinDistanceMarker.Auto();
             float currDistAlongRoad = 0;
             var localPos = transform.InverseTransformPoint(worldPosition);
             var closestPointLocal = Vector3.zero;

@@ -229,7 +229,7 @@ namespace Barmetler.RoadSystem
             _updateRunning = false;
         }
 
-        private IEnumerator GetNewWayPointsAsync(Consumer<PointList> resultConsumer)
+        private IEnumerator GetNewWayPointsAsync(Consumer<PointList> resultConsumer, PointList oldValue)
         {
             if (_updateRunning)
             {
@@ -245,7 +245,8 @@ namespace Barmetler.RoadSystem
                 transform.position, goal,
                 yScale: minDistanceYScale,
                 stepSize: Mathf.Max(0.1f, graphStepSize),
-                minDstToRoadToConnect: minDistanceToRoadToConnect
+                minDstToRoadToConnect: minDistanceToRoadToConnect,
+                oldResult: oldValue
             );
             GetNewWayPointsPerfMarker.End();
             yield return findPathEn;

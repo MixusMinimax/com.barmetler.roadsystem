@@ -5,7 +5,9 @@ using System.Linq;
 using Barmetler.RoadSystem.Util;
 using Unity.Collections;
 using Unity.Mathematics;
+using Unity.Profiling;
 using UnityEngine;
+using UnityEngine.Pool;
 using NodeType = Barmetler.RoadSystem.RoadSystem.Graph.Node.NodeType;
 
 namespace Barmetler.RoadSystem
@@ -15,6 +17,9 @@ namespace Barmetler.RoadSystem
     [ExecuteAlways]
     public class RoadSystem : MonoBehaviour
     {
+        private static readonly ObjectPool<List<Graph.Node>> NodeListPool = new(() => new List<Graph.Node>());
+        private static readonly ObjectPool<List<int>> IntListPool = new(() => new List<int>());
+
         [SerializeField, HideInInspector]
         private Intersection[] intersections;
 
@@ -218,6 +223,9 @@ namespace Barmetler.RoadSystem
             return GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
         }
 
+        private static ProfilerMarker _getMinDistanceMarker = new ProfilerMarker("Find start and end points");
+        private static ProfilerMarker _generateSmoothPathMarker = new ProfilerMarker("Generate Smooth path");
+
         /// <summary>
         /// Schedules a job on another thread to find a path from startPosWorld to goalPosWorld.
         /// </summary>
@@ -235,13 +243,16 @@ namespace Barmetler.RoadSystem
         /// <param name="edges">May be null. If not null, will be populated with the edges in the path.</param>
         /// <param name="yScale"></param>
         /// <param name="minDstToRoadToConnect"></param>
+        /// <param name="oldResult">If not null, re-use this list for the result.</param>
         /// <returns></returns>
         public IEnumerator FindPathAsync(
             Consumer<Action> onCancel,
             Consumer<PointList> resultConsumer,
             Vector3 startPosWorld, Vector3 goalPosWorld, List<Edge> edges = null,
-            float yScale = 1, float stepSize = 1, float minDstToRoadToConnect = 10)
+            float yScale = 1, float stepSize = 1, float minDstToRoadToConnect = 10,
+            PointList oldResult = null)
         {
+            _getMinDistanceMarker.Begin();
             var startDistRoad = GetMinDistance(
                 startPosWorld, stepSize, yScale,
                 out var startRoad, out var startPosition1, out var startDstAlongRoad1);
@@ -259,26 +270,33 @@ namespace Barmetler.RoadSystem
                 out _, out var goalAnchor,
                 out var goalPosition2, out var goalDstAlongRoad2);
             var goalUseRoad = goalDistRoad < goalDistIntersection;
+            _getMinDistanceMarker.End();
 
             if (!graph.NativeArrayIsCreated)
                 graph.InitNativeArray();
 
             List<Graph.Node> nodes = null;
+            using var oldNodesObj = NodeListPool.Get(out var oldNodes);
+
             yield return graph.FindPathBurstAsync(
-                onCancel,
-                value => nodes = value,
-                startUseRoad ? startPosition1 : startPosition2,
-                startUseRoad ? startRoad : null,
-                startUseRoad ? null : startAnchor,
-                startUseRoad ? startDstAlongRoad1 : startDstAlongRoad2,
-                goalUseRoad ? goalPosition1 : goalPosition2,
-                goalUseRoad ? goalRoad : null,
-                goalUseRoad ? null : goalAnchor,
-                goalUseRoad ? goalDstAlongRoad1 : goalDstAlongRoad2,
-                edges: edges
+                onCancel: onCancel,
+                resultConsumer: value => nodes = value,
+                startPosWorld: startUseRoad ? startPosition1 : startPosition2,
+                startRoad: startUseRoad ? startRoad : null,
+                startAnchor: startUseRoad ? null : startAnchor,
+                startDistanceAlongRoad: startUseRoad ? startDstAlongRoad1 : startDstAlongRoad2,
+                goalPosWorld: goalUseRoad ? goalPosition1 : goalPosition2,
+                goalRoad: goalUseRoad ? goalRoad : null,
+                goalAnchor: goalUseRoad ? null : goalAnchor,
+                goalDistanceAlongRoad: goalUseRoad ? goalDstAlongRoad1 : goalDstAlongRoad2,
+                edges: edges,
+                oldNodes: oldNodes
             );
 
-            var result = GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect);
+            _generateSmoothPathMarker.Begin();
+            var result = GenerateSmoothPath(startPosWorld, goalPosWorld, nodes, stepSize, minDstToRoadToConnect,
+                oldResult: oldResult);
+            _generateSmoothPathMarker.End();
 
             resultConsumer(result);
         }
@@ -286,9 +304,10 @@ namespace Barmetler.RoadSystem
         private static PointList GenerateSmoothPath(
             Vector3 startPosWorld, Vector3 goalPosWorld, List<Graph.Node> nodes,
             float stepSize = 1, float minDstToRoadToConnect = 10, bool onlyNodes = false,
-            bool subdivideStraightLines = false)
+            bool subdivideStraightLines = false, PointList oldResult = null)
         {
-            var pathPoints = new PointList();
+            oldResult?.Clear();
+            var pathPoints = oldResult ?? new PointList();
 
             if (onlyNodes)
             {
@@ -673,7 +692,7 @@ namespace Barmetler.RoadSystem
 
             private
                 (
-                List<Node> nodesList,
+                (PooledObject<List<Node>> nodesListObj, List<Node> nodesList) nodes,
                 NativeArray<float3> nativeNodes,
                 ExtendedTwoDimensionalNativeArray<float> weightsWithStartAndGoal,
                 int startIndex,
@@ -696,17 +715,16 @@ namespace Barmetler.RoadSystem
                 if (_weightsNativeArray.Width != nodes.Count || _weightsNativeArray.Height != nodes.Count)
                     throw new InvalidOperationException("NativeArray size does not match nodes size.");
 
-                var nodesList = nodes.ToList();
-
-                nodesList.Insert(0,
-                    startRoad != null
-                        ? new Node(startPosWorld, startRoad, startDistanceAlongRoad, roadSystem)
-                        : new Node(startPosWorld, startAnchor, startDistanceAlongRoad, roadSystem));
-
-                nodesList.Insert(1,
+                var nodesListObj = NodeListPool.Get(out var nodesList);
+                nodesList.Clear();
+                nodesList.Add(startRoad != null
+                    ? new Node(startPosWorld, startRoad, startDistanceAlongRoad, roadSystem)
+                    : new Node(startPosWorld, startAnchor, startDistanceAlongRoad, roadSystem));
+                nodesList.Add(
                     goalRoad != null
                         ? new Node(goalPosWorld, goalRoad, goalDistanceAlongRoad, roadSystem)
                         : new Node(goalPosWorld, goalAnchor, goalDistanceAlongRoad, roadSystem));
+                nodesList.AddRange(nodes);
 
                 const int startIndex = 0;
                 const int goalIndex = 1;
@@ -827,7 +845,7 @@ namespace Barmetler.RoadSystem
                 for (var i = 0; i < nodesList.Count; ++i)
                     nativeNodes[i] = nodesList[i].position;
 
-                return (nodesList, nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex);
+                return ((nodesListObj, nodesList), nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex);
             }
 
             /// <summary>
@@ -854,7 +872,7 @@ namespace Barmetler.RoadSystem
                 out int stepsTaken, List<Edge> edges = null)
             {
                 var (
-                    nodesList,
+                    (nodesListObj, nodesList),
                     nativeNodes,
                     weightsWithStartAndGoal,
                     startIndex, goalIndex
@@ -872,6 +890,7 @@ namespace Barmetler.RoadSystem
 
                 var path = new List<Node>(pathIndices.Length);
                 path.AddRange(pathIndices.Select(t => nodesList[t]));
+                using (nodesListObj) { }
 
                 return path;
             }
@@ -896,6 +915,7 @@ namespace Barmetler.RoadSystem
             /// <param name="goalDistanceAlongRoad">Distance along the road or anchor the goal point is at.</param>
             /// <param name="edges">May be null. If not null, will be populated with the edges in the path.
             /// </param>
+            /// <param name="oldNodes">For Memory reuse</param>
             /// <returns></returns>
             /// <exception cref="InvalidOperationException"></exception>
             /// <exception cref="ArgumentException"></exception>
@@ -904,10 +924,10 @@ namespace Barmetler.RoadSystem
                 Consumer<List<Node>> resultConsumer,
                 Vector3 startPosWorld, Road startRoad, RoadAnchor startAnchor, float startDistanceAlongRoad,
                 Vector3 goalPosWorld, Road goalRoad, RoadAnchor goalAnchor, float goalDistanceAlongRoad,
-                List<Edge> edges = null)
+                List<Edge> edges = null, List<Node> oldNodes = null)
             {
                 var (
-                    nodesList,
+                    (nodesListObj, nodesList),
                     nativeNodes,
                     weightsWithStartAndGoal,
                     startIndex, goalIndex
@@ -917,16 +937,22 @@ namespace Barmetler.RoadSystem
                     edges,
                     Allocator.Persistent);
 
-                int[] pathIndices = null;
-                yield return AStar.FindShortestPathAsync(onCancel,
-                    value => pathIndices = value,
-                    nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex,
-                    AStar.DistanceHeuristic);
+                using (IntListPool.Get(out var pathIndices))
+                {
+                    pathIndices.Clear();
 
-                var path = new List<Node>(pathIndices.Length);
-                path.AddRange(pathIndices.Select(t => nodesList[t]));
+                    yield return AStar.FindShortestPathAsync(onCancel,
+                        value => pathIndices = value,
+                        nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex,
+                        AStar.DistanceHeuristic);
 
-                resultConsumer(path);
+                    oldNodes?.Clear();
+                    var path = oldNodes ?? new List<Node>(pathIndices.Count);
+                    path.AddRange(pathIndices.Select(t => nodesList[t]));
+                    using (nodesListObj) { }
+
+                    resultConsumer(path);
+                }
             }
         }
     }

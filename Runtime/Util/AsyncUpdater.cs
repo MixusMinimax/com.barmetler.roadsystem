@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Diagnostics;
+using JetBrains.Annotations;
 using UnityEngine;
 
 namespace Barmetler.RoadSystem.Util
@@ -17,8 +18,16 @@ namespace Barmetler.RoadSystem.Util
     {
         public delegate IEnumerator Updater(Consumer<T> consumer);
 
+        public delegate IEnumerator ReusingUpdater(Consumer<T> consumer, T previousValue);
+
         private T _data;
+        private T _swap;
+
+        [CanBeNull]
         private readonly Updater _updater;
+
+        [CanBeNull]
+        private readonly ReusingUpdater _reusingUpdater;
 
         private readonly MonoBehaviour _mb;
         private bool _coroutineRunning;
@@ -26,10 +35,20 @@ namespace Barmetler.RoadSystem.Util
         private readonly float _interval;
         private readonly Stopwatch _sw = new Stopwatch();
 
+        public AsyncUpdater(MonoBehaviour mb, ReusingUpdater updater, T initialData, float interval = 0)
+        {
+            _mb = mb;
+            _updater = null;
+            _reusingUpdater = updater;
+            _interval = interval;
+            _data = initialData;
+        }
+
         public AsyncUpdater(MonoBehaviour mb, Updater updater, T initialData, float interval = 0)
         {
             _mb = mb;
             _updater = updater;
+            _reusingUpdater = null;
             _interval = interval;
             _data = initialData;
         }
@@ -79,8 +98,20 @@ namespace Barmetler.RoadSystem.Util
         private IEnumerator CallUpdater()
         {
             _sw.Restart();
-            T newData = default;
-            var it = _updater(v => newData = v);
+            IEnumerator it;
+            if (_reusingUpdater != null)
+            {
+                it = _reusingUpdater(v => _swap = v, _swap);
+            }
+            else if (_updater != null)
+            {
+                it = _updater(v => _swap = v);
+            }
+            else
+            {
+                goto skip;
+            }
+
             // this will execute the "asynchronous" updater.
             // Note: the code until the first `yield return` is executed right here, right now.
             // You can `yield return null` once without this function itself yielding.
@@ -94,7 +125,8 @@ namespace Barmetler.RoadSystem.Util
                 while (it.MoveNext()) yield return it.Current;
             }
 
-            _data = newData;
+            skip:
+            (_data, _swap) = (_swap, _data);
 
             _sw.Stop();
             var secondsToWait = _interval - _sw.ElapsedMilliseconds / 1e6f;

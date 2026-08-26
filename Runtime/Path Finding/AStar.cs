@@ -223,10 +223,10 @@ namespace Barmetler
         [SuppressMessage("ReSharper", "AccessToDisposedClosure")]
         public static IEnumerator FindShortestPathAsync(
             Consumer<Action> onCancel,
-            Consumer<int[]> resultConsumer,
+            Consumer<List<int>> resultConsumer,
             NativeArray<float3> nodes,
             ExtendedTwoDimensionalNativeArray<float> weights, int start, int goal,
-            FunctionPointer<Heuristic> heuristic = default)
+            FunctionPointer<Heuristic> heuristic = default, List<int> oldResult = null)
         {
             if (!heuristic.IsCreated) heuristic = DistanceHeuristic;
             var path = new NativeList<int>(Allocator.Persistent);
@@ -262,7 +262,10 @@ namespace Barmetler
             if (state == 0)
             {
                 state = 1;
-                resultConsumer(path.AsArray().ToArray());
+                oldResult?.Clear();
+                var resultList = oldResult ?? new List<int>();
+                resultList.AddRange(path.AsArray());
+                resultConsumer(resultList);
                 path.Dispose();
                 nodes.Dispose();
                 weights.Dispose();
