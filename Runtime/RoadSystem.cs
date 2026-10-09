@@ -7,7 +7,9 @@ using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
+#if UNITY_2021_1_OR_NEWER
 using UnityEngine.Pool;
+#endif
 using NodeType = Barmetler.RoadSystem.RoadSystem.Graph.Node.NodeType;
 
 namespace Barmetler.RoadSystem
@@ -17,8 +19,10 @@ namespace Barmetler.RoadSystem
     [ExecuteAlways]
     public class RoadSystem : MonoBehaviour
     {
+#if UNITY_2021_1_OR_NEWER
         private static readonly ObjectPool<List<Graph.Node>> NodeListPool = new(() => new List<Graph.Node>());
         private static readonly ObjectPool<List<int>> IntListPool = new(() => new List<int>());
+#endif
 
         [SerializeField, HideInInspector]
         private Intersection[] intersections;
@@ -276,7 +280,12 @@ namespace Barmetler.RoadSystem
                 graph.InitNativeArray();
 
             List<Graph.Node> nodes = null;
+#if UNITY_2021_1_OR_NEWER
             using var oldNodesObj = NodeListPool.Get(out var oldNodes);
+            oldNodes.Clear();
+#else
+            var oldNodes = new List<Graph.Node>();
+#endif
 
             yield return graph.FindPathBurstAsync(
                 onCancel: onCancel,
@@ -692,7 +701,11 @@ namespace Barmetler.RoadSystem
 
             private
                 (
+#if UNITY_2021_1_OR_NEWER
                 (PooledObject<List<Node>> nodesListObj, List<Node> nodesList) nodes,
+#else
+                List<Node> nodesList,
+#endif
                 NativeArray<float3> nativeNodes,
                 ExtendedTwoDimensionalNativeArray<float> weightsWithStartAndGoal,
                 int startIndex,
@@ -715,8 +728,12 @@ namespace Barmetler.RoadSystem
                 if (_weightsNativeArray.Width != nodes.Count || _weightsNativeArray.Height != nodes.Count)
                     throw new InvalidOperationException("NativeArray size does not match nodes size.");
 
+#if UNITY_2021_1_OR_NEWER
                 var nodesListObj = NodeListPool.Get(out var nodesList);
                 nodesList.Clear();
+#else
+                var nodesList = new List<Node>();
+#endif
                 nodesList.Add(startRoad != null
                     ? new Node(startPosWorld, startRoad, startDistanceAlongRoad, roadSystem)
                     : new Node(startPosWorld, startAnchor, startDistanceAlongRoad, roadSystem));
@@ -845,7 +862,13 @@ namespace Barmetler.RoadSystem
                 for (var i = 0; i < nodesList.Count; ++i)
                     nativeNodes[i] = nodesList[i].position;
 
-                return ((nodesListObj, nodesList), nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex);
+                return (
+#if UNITY_2021_1_OR_NEWER
+                    (nodesListObj, nodesList),
+#else
+                    nodesList,
+#endif
+                    nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex);
             }
 
             /// <summary>
@@ -872,7 +895,11 @@ namespace Barmetler.RoadSystem
                 out int stepsTaken, List<Edge> edges = null)
             {
                 var (
+#if UNITY_2021_1_OR_NEWER
                     (nodesListObj, nodesList),
+#else
+                    nodesList,
+#endif
                     nativeNodes,
                     weightsWithStartAndGoal,
                     startIndex, goalIndex
@@ -890,7 +917,9 @@ namespace Barmetler.RoadSystem
 
                 var path = new List<Node>(pathIndices.Length);
                 path.AddRange(pathIndices.Select(t => nodesList[t]));
+#if UNITY_2021_1_OR_NEWER
                 using (nodesListObj) { }
+#endif
 
                 return path;
             }
@@ -927,7 +956,11 @@ namespace Barmetler.RoadSystem
                 List<Edge> edges = null, List<Node> oldNodes = null)
             {
                 var (
+#if UNITY_2021_1_OR_NEWER
                     (nodesListObj, nodesList),
+#else
+                    nodesList,
+#endif
                     nativeNodes,
                     weightsWithStartAndGoal,
                     startIndex, goalIndex
@@ -937,22 +970,26 @@ namespace Barmetler.RoadSystem
                     edges,
                     Allocator.Persistent);
 
-                using (IntListPool.Get(out var pathIndices))
-                {
-                    pathIndices.Clear();
+#if UNITY_2021_1_OR_NEWER
+                using var pathIndicesObj = IntListPool.Get(out var pathIndices);
+                pathIndices.Clear();
+#else
+                var pathIndices = new List<int>();
+#endif
 
-                    yield return AStar.FindShortestPathAsync(onCancel,
-                        value => pathIndices = value,
-                        nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex,
-                        AStar.DistanceHeuristic);
+                yield return AStar.FindShortestPathAsync(onCancel,
+                    value => pathIndices = value,
+                    nativeNodes, weightsWithStartAndGoal, startIndex, goalIndex,
+                    AStar.DistanceHeuristic);
 
-                    oldNodes?.Clear();
-                    var path = oldNodes ?? new List<Node>(pathIndices.Count);
-                    path.AddRange(pathIndices.Select(t => nodesList[t]));
-                    using (nodesListObj) { }
+                oldNodes?.Clear();
+                var path = oldNodes ?? new List<Node>(pathIndices.Count);
+                path.AddRange(pathIndices.Select(t => nodesList[t]));
+#if UNITY_2021_1_OR_NEWER
+                using (nodesListObj) { }
+#endif
 
-                    resultConsumer(path);
-                }
+                resultConsumer(path);
             }
         }
     }
